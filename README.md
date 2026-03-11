@@ -28,10 +28,10 @@
 | 姓名 | 负责模块 | GitHub ID |
 |------|----------|-----------|
 | MINGJIN LI | | |
-| XINGZHOU PENG | | |
+| XINGZHOU PENG | | xing-520 |
 | JIAFENG YE | | Kelvinvoyage |
 | WEIJIE ZHOU | | Q123422 |
-| YUXI ZHU | | |
+| YUXI ZHU | | shaun070119 |
 | LVZHEN ZHOU | | ZnLuAr |
 
 ## 项目结构
