@@ -1,0 +1,29 @@
+# =============================================================================
+# .editorconfig — 统一不同编辑器的基本代码格式
+#
+# 大多数编辑器（VS Code、PyCharm、Sublime 等）都支持这个文件。
+# 它会自动设置缩进、换行符、编码等，这样不管谁用什么编辑器，
+# 写出来的代码格式都是一致的，减少无意义的格式差异。
+#
+# VS Code 用户：如果没有自动生效，安装 "EditorConfig for VS Code" 插件即可。
+# =============================================================================
+
+# 表示这是项目根目录的配置，编辑器不会再往上层目录查找
+root = true
+
+# 所有文件的默认设置
+[*]
+charset = utf-8                    # 统一使用 UTF-8 编码
+indent_style = space               # 用空格缩进（不用 Tab）
+indent_size = 4                    # 缩进宽度 4 个空格（Python 标准）
+end_of_line = lf                   # 换行符用 LF
+trim_trailing_whitespace = true    # 自动去掉行尾多余空格
+insert_final_newline = true        # 文件末尾保留一个空行
+
+# Markdown 文件：保留行尾空格（Markdown 中两个行尾空格表示换行）
+[*.md]
+trim_trailing_whitespace = false
+
+# JSON / YAML 文件：习惯用 2 个空格缩进
+[*.{json,yaml,yml}]
+indent_size = 2

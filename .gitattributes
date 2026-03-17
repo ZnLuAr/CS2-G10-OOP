@@ -1,0 +1,45 @@
+# =============================================================================
+# .gitattributes — 告诉 Git 如何处理不同类型的文件
+#
+# 主要作用：统一换行符。
+# Windows 用 CRLF（\r\n）换行，macOS/Linux 用 LF（\n）换行。
+# 如果不统一，同一个文件在不同系统上打开再提交，Git 会认为每一行都被修改了，
+# 导致 diff 混乱、合并冲突。这个文件强制所有文本文件在仓库中使用 LF。
+# =============================================================================
+
+
+# 默认：自动检测文本文件，统一使用 LF 换行
+* text=auto eol=lf
+
+
+# Python 源码
+*.py text eol=lf
+*.pyw text eol=lf
+*.pyi text eol=lf
+
+
+# 文本 / 配置文件
+*.md text eol=lf
+*.txt text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.csv text eol=lf
+
+
+# Shell 脚本
+*.sh text eol=lf
+*.bat text eol=crlf
+# Windows 批处理文件需要 CRLF 才能正常运行
+
+
+# 二进制文件：告诉 Git 不要尝试做文本 diff，原样存储
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
