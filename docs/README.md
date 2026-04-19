@@ -4,14 +4,27 @@
 
 ## 文档总览
 
+### 项目文档（docs/ 根目录）
+
 | 文件 | 用途 | 对应报告章节 |
 |------|------|--------------|
 | [`project-introduction.md`](./project-introduction.md) | 作业说明（来自课程文档，原文留档） | — |
-| [`design-decisions.md`](./design-decisions.md) | 设计决策记录："为什么这么做" | 技术设计 / 系统设计 |
-| [`development-log.md`](./development-log.md) | 时间线式开发日志：什么时候改了什么 | 开发与测试 |
-| [`testing-notes.md`](./testing-notes.md) | 测试与调试笔记：发现的 bug 与修复过程 | 开发与测试 |
+| [`data-design.md`](./data-design.md) | 数据系统设计：全部实体的字段、关系、业务规则 | 技术设计 |
+| [`error-and-log-design.md`](./error-and-log-design.md) | 异常与日志接口规范：异常树、字段、日志格式 | 技术设计 |
+| [`services-interface.md`](./services-interface.md) | 服务层接口规范：各服务类的方法签名、异常、副作用 | 技术设计 |
+| [`功能列表.csv`](./功能列表.csv) | 模块化功能清单与负责人 | 技术设计 / 开发与测试 |
 | [`reflection.md`](./reflection.md) | 项目反思：优势、局限、改进方向 | 反思 |
 | [`PR-draft-for-reference.md`](./PR-draft-for-reference.md) | Pull Request 流程示例文案 | — |
+
+### 开发素材（[`dev-materials-for-report/`](./dev-materials-for-report/)）
+
+面向最终报告的过程性材料，详见该目录下的 [`README.md`](./dev-materials-for-report/README.md)。
+
+| 文件 | 用途 | 对应报告章节 |
+|------|------|--------------|
+| [`design-decisions.md`](./dev-materials-for-report/design-decisions.md) | 设计决策记录："为什么这么做" | 技术设计 / 系统设计 |
+| [`development-log.md`](./dev-materials-for-report/development-log.md) | 时间线式开发日志：什么时候改了什么 | 开发与测试 |
+| [`testing-notes.md`](./dev-materials-for-report/testing-notes.md) | 测试与调试笔记：发现的 bug 与修复过程 | 开发与测试 |
 
 > 数据字段约定见 [`../data/README.md`](../data/README.md)。
 

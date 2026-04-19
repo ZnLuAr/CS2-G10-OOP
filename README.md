@@ -27,12 +27,12 @@
 
 | 姓名 | 负责模块 | GitHub ID |
 |------|----------|-----------|
-| MINGJIN LI | | Matthew-0223 |
-| XINGZHOU PENG | | xing-520 |
-| JIAFENG YE | | Kelvinvoyage |
-| WEIJIE ZHOU | | Q123422 |
-| YUXI ZHU | | shaun070119 |
-| LVZHEN ZHOU | | ZnLuAr |
+| MINGJIN LI | 市场、交易 | Matthew-0223 |
+| XINGZHOU PENG | 背包 | xing-520 |
+| JIAFENG YE | 物品管理 | Kelvinvoyage |
+| WEIJIE ZHOU | 玩家管理 | Q123422 |
+| YUXI ZHU | 异常与日志 | shaun070119 |
+| LVZHEN ZHOU | 剩下的 | ZnLuAr |
 
 ## 项目结构
 
@@ -45,6 +45,7 @@
 │   ├── models/         # 领域模型 / 实体类
 │   ├── structures/     # 自实现的数据结构
 │   ├── services/       # 业务逻辑
+│   ├── errors/         # 自定义异常
 │   └── ui/             # 用户界面 / CLI 交互
 ├── tests/              # 测试代码
 ├── data/               # 运行时数据文件（由程序自动生成，不提交）
@@ -53,6 +54,20 @@
 ├── requirements.txt    # 依赖列表（如有）
 └── README.md
 ```
+
+## 项目文档
+
+动手写代码前请先阅读以下规范文档（在 [`docs/`](./docs/) 目录下，索引见 [`docs/README.md`](./docs/README.md)）：
+
+| 文档 | 谁需要看 |
+|------|----------|
+| [`docs/project-introduction.md`](./docs/project-introduction.md) | 全员（作业原始要求） |
+| [`docs/data-design.md`](./docs/data-design.md) | 写模型 / 持久化 / 业务逻辑前必读 |
+| [`docs/services-interface.md`](./docs/services-interface.md) | 写服务层 / 调用服务层前必读 |
+| [`docs/error-and-log-design.md`](./docs/error-and-log-design.md) | 抛 / 接异常或写日志前必读 |
+| [`docs/功能列表.csv`](./docs/功能列表.csv) | 查看自己负责的功能与状态 |
+
+> 设计决策、开发日志、测试笔记等过程性材料在 [`docs/dev-materials-for-report/`](./docs/dev-materials-for-report/)，**边开发边写**，最终直接复用进报告。
 
 ## 如何运行
 
