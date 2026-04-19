@@ -1,0 +1,3 @@
+# Project dependencies
+# 目前不依赖任何第三方库；如需添加，请在此处声明，例如：
+# pytest>=7.0

@@ -1,18 +1,31 @@
 # docs/
 
-本目录用于存放项目相关文档与报告素材。
+本目录用于存放项目相关文档、设计材料与最终报告素材。
 
+## 文档总览
 
-> 具体内容待定，随开发进度补充。
+| 文件 | 用途 | 对应报告章节 |
+|------|------|--------------|
+| [`project-introduction.md`](./project-introduction.md) | 作业说明（来自课程文档，原文留档） | — |
+| [`design-decisions.md`](./design-decisions.md) | 设计决策记录："为什么这么做" | 技术设计 / 系统设计 |
+| [`development-log.md`](./development-log.md) | 时间线式开发日志：什么时候改了什么 | 开发与测试 |
+| [`testing-notes.md`](./testing-notes.md) | 测试与调试笔记：发现的 bug 与修复过程 | 开发与测试 |
+| [`reflection.md`](./reflection.md) | 项目反思：优势、局限、改进方向 | 反思 |
+| [`PR-draft-for-reference.md`](./PR-draft-for-reference.md) | Pull Request 流程示例文案 | — |
 
+> 数据字段约定见 [`../data/README.md`](../data/README.md)。
 
-在该分支下，创建的 ./docs/README.md 仅用于展示 GitHub 的 Pull Request 流程
-（不过我们这个项目大概不会走这么正式的流程
+## 使用建议
 
+- **边开发边记**：开发过程中产生的设计决策、踩坑、反思应该**当场**写进对应文档，不要拖到最后回忆 ~~（实在不行可以让 AI 帮忙）~~
+- **统一风格**：每条记录建议带日期 `[YYYY-MM-DD]`，便于追溯
+- **直接面向报告**：写文档时就当作是在写报告，最终可以直接复用内容
 
-如果你点开了这个文件，不如再点开 Pull Request 页面看看吧（
+---
 
+> 本目录中的内容随开发进度持续补充，欢迎大家补充与修订😋
 
+---
 
 ```
 
@@ -29,5 +42,3 @@
 接下来我不套模板，不评判，不逃避，只用最真实的方式和你交流。你说，我听。
 
 ```
-
----

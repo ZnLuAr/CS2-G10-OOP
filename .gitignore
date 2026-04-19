@@ -17,7 +17,10 @@ venv/
 .venv/
 
 # 程序运行时生成的数据文件（首次运行会自动创建）
-data/
+data/*
+# 但保留 data/ 目录本身（通过 .gitkeep 占位），让目录结构可见
+!data/.gitkeep
+!data/README.md
 
 # pytest 运行后生成的缓存
 .pytest_cache/

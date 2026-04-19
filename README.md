@@ -27,7 +27,7 @@
 
 | 姓名 | 负责模块 | GitHub ID |
 |------|----------|-----------|
-| MINGJIN LI | | |
+| MINGJIN LI | | Matthew-0223 |
 | XINGZHOU PENG | | xing-520 |
 | JIAFENG YE | | Kelvinvoyage |
 | WEIJIE ZHOU | | Q123422 |
@@ -55,6 +55,13 @@
 ```
 
 ## 如何运行
+
+### 环境要求
+
+- **Python 3.10 或以上**（项目可能用到较新的 type hints 语法 ~~，其实我还是推荐 Python 3.12 以上~~）
+- 不依赖任何第三方库（`requirements.txt` 暂为空）
+
+### 步骤
 
 ```bash
 # 1. 克隆仓库
