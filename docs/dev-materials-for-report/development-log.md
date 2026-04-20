@@ -141,4 +141,19 @@
   - 接口规范优先于实现：负责人可先写假实现（`raise NotImplementedError`）让别人能 import 跑通
 - **遗留问题**：`Repository` 字段定型后若需新增字段，需同步更新所有 `Persistence.save_*` 与种子脚本
 
+### [2026-04-20] 实现自定义异常体系（基础部分）
+
+- **变更内容**：
+  - 按 [`error-and-log-design.md §2-§4`](../error-and-log-design.md) 实现 `src/errors/` 全部 16 个异常类 + 3 层基类
+  - 拆分为 4 个文件：[`base.py`](../../src/errors/base.py) / [`data.py`](../../src/errors/data.py) / [`validation.py`](../../src/errors/validation.py) / [`trade.py`](../../src/errors/trade.py)
+  - [`__init__.py`](../../src/errors/__init__.py) 仅做统一 re-export 与 `__all__`，保证调用方写法不变（`from src.errors import InsufficientGoldError`）
+  - 新增 [`tests/services/test_errors.py`](../../tests/services/test_errors.py)：4 组共 44 个用例，覆盖异常树结构、基类行为、每个具体异常的字段与消息、捕获契约（基类抓子类）
+  - 同步更新 [`error-and-log-design.md §7`](../error-and-log-design.md) 的目录约定（从单文件改为按大类分文件）
+- **原因**：
+  - 系统启动 / 持久化等模块的异常（`PersistenceError` / `DataIntegrityError` / `SerializationError`）已经被本人接下来的工作直接依赖，先把这部分稳定下来下游才能写
+  - 单文件方案（300 行）已临近可读性临界，按异常大类拆分更便于多人扩展
+- **遗留问题**：
+  - `src/services/logger.py` 仍未实现，待 YUXI ZHU 接手
+  - 异常路径测试（功能 ID 60）的"完整端到端"用例需等服务层落地后再补
+
 <!-- 在此添加新条目 -->

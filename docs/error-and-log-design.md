@@ -136,7 +136,7 @@ class InventoryFullError(BusinessRuleError):
 | `ListingNotActiveError` | `TradeError` | `listing_id, status` | 挂单已失效 |
 | `DuplicateListingError` | `TradeError` | `item_id` | 同一物品已在挂单中 |
 
-> **新增异常的流程**：先在本表追加一行，再到 [src/errors/__init__.py](../src/errors/__init__.py) 实现，最后到 [`dev-materials-for-report/development-log.md`](./dev-materials-for-report/development-log.md) 记一笔。
+> **新增异常的流程**：先在本表追加一行，再到 `src/errors/` 对应分类文件（`data.py` / `validation.py` / `trade.py`）实现，并在 [`src/errors/__init__.py`](../src/errors/__init__.py) 同步 re-export 与 `__all__`，最后到 [`dev-materials-for-report/development-log.md`](./dev-materials-for-report/development-log.md) 记一笔。
 
 ---
 
@@ -213,12 +213,17 @@ log.error("persistence", "save_failed", path="data/players.json", error=str(e))
 ```
 src/
 ├── errors/
-│   └── __init__.py        # 全部异常类（按 §2 层次实现）
+│   ├── __init__.py       # 统一入口：re-export 全部异常 + 异常树文档
+│   ├── base.py           # TradingSystemError 根基类
+│   ├── data.py           # DataError 及其子类
+│   ├── validation.py     # ValidationError / NotFoundError / BusinessRuleError 系列
+│   └── trade.py          # TradeError 及其子类
 └── services/
     └── logger.py          # log.info / log.warn / log.error 包装
 ```
 
-- 所有异常**集中在 `src/errors/__init__.py`**，便于 `from src.errors import InsufficientGoldError` 一行导入
+- 所有异常**通过 `src.errors` 统一导出**，调用方一行 import：`from src.errors import InsufficientGoldError`
+- 按异常大类分文件，避免单文件过长；新增异常时在对应文件内追加，并在 `__init__.py` 同步 re-export 与 `__all__`
 - 不要散落在各业务模块里
 
 ---
