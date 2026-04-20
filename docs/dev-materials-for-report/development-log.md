@@ -156,4 +156,33 @@
   - `src/services/logger.py` 仍未实现，待 YUXI ZHU 接手
   - 异常路径测试（功能 ID 60）的"完整端到端"用例需等服务层落地后再补
 
+### [2026-04-20] 完成系统启动 5 项功能（功能 ID 1-5）
+
+- **变更内容**：
+  - 新建领域模型（方案 C：字段固定的实体先 dataclass，多态层留给 owner）
+    - [`src/models/player.py`](../../src/models/player.py)
+    - [`src/models/listing.py`](../../src/models/listing.py)
+    - [`src/models/transaction.py`](../../src/models/transaction.py)
+    - [`src/models/__init__.py`](../../src/models/__init__.py) 统一导出
+  - 持久化与种子
+    - [`src/services/seed.py`](../../src/services/seed.py)：完整 Catalog + 50 物品 + 12 玩家 + 25 挂单
+    - [`src/services/persistence.py`](../../src/services/persistence.py)：`Persistence` 类（load_all / save_* / seed_if_empty / next_*_id / 完整性校验 / 备份 / reset）
+    - `Repository` 数据载体：Player/Listing/Transaction 已用模型类，Item/Catalog 仍为 dict（待 JIAFENG / XINGZHOU）
+  - 应用生命周期
+    - [`src/app.py`](../../src/app.py)：`App` 类承载 bootstrap → banner → ui_runner → shutdown，含进程级兜底（KeyboardInterrupt / TradingSystemError / 任意 Exception 三档退出码）
+  - 入口收口
+    - [`main.py`](../../main.py) 缩减为 ~10 行，只调 `App().run()`
+  - 测试
+    - [`tests/services/test_persistence.py`](../../tests/services/test_persistence.py) 19 用例
+    - [`tests/test_app.py`](../../tests/test_app.py) 10 用例
+  - 全套 73 个测试通过
+- **关键设计决策**（详见 design-decisions.md，待补）：
+  - **`Repository` 字段类型**：放弃"全 dict"方案，对字段固定无子类的实体（Player/Listing/Transaction）直接用 dataclass，避免后续 `repo.players[pid]['gold']` → `.gold` 大重构
+  - **`App` 放在 `src/app.py`**：与 `src/services/` 等同层，根目录只留 `main.py` 作为薄入口
+  - **完整性校验分级**：背包 / 挂单引用错误硬抛 `DataIntegrityError`；交易引用挂单缺失仅 print 警告（历史允许挂单被清理）
+- **遗留问题**：
+  - `Item` 多态层（5 子类 + mixin）等 JIAFENG 实现，届时 Persistence 切换 `dict` → `Item`
+  - `CatalogTree` 等 XINGZHOU 实现自实现 Tree 后包装
+  - 完整性校验中"软警告"目前 print，等 logger 落地后改 `log.warn`
+
 <!-- 在此添加新条目 -->

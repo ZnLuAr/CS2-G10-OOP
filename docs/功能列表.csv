@@ -1,9 +1,9 @@
 系统,模块,功能名称,功能描述,状态,优先级,标签,设计备注,ID,负责人,是否完成,开发备注
-GETS,系统启动,首次运行初始化,首次启动检测 data/ 目录无数据文件，自动调用种子生成器创建初始数据集（玩家≥10 / 物品≥50 / 挂单≥20），并写入 JSON 文件,已规划,P0-关键,#Core,seed.py；幂等：仅当文件不存在时执行,1,LVZHEN ZHOU,未完成,
-GETS,系统启动,数据加载,启动时从 data/*.json 读取所有数据并构建内存对象（Player / Item / Listing / Transaction）,已规划,P0-关键,#Core,services/persistence.py::load_all,2,LVZHEN ZHOU,未完成,
-GETS,系统启动,数据完整性校验,加载时校验外键完整性（如 inventory 中的 item_id 是否存在），不一致时打印警告但程序继续运行,已规划,P1-重要,#Core,使用自定义异常 DataIntegrityWarning,3,LVZHEN ZHOU,未完成,
-GETS,系统启动,优雅退出,退出前自动保存所有内存数据到 data/*.json，覆盖 Ctrl+C / 正常退出两种情况,已规划,P0-关键,#Core,atexit + try/finally,4,LVZHEN ZHOU,未完成,
-GETS,系统启动,版本信息显示,启动时打印程序名、版本号、当前数据规模（玩家数 / 物品数 / 挂单数）,已规划,P2-一般,#UI,,5,LVZHEN ZHOU,未完成,
+GETS,系统启动,首次运行初始化,首次启动检测 data/ 目录无数据文件，自动调用种子生成器创建初始数据集（玩家≥10 / 物品≥50 / 挂单≥20），并写入 JSON 文件,已完成,P0-关键,#Core,seed.py；幂等：仅当文件不存在时执行,1,LVZHEN ZHOU,已完成,services/seed.py + persistence.seed_if_empty
+GETS,系统启动,数据加载,启动时从 data/*.json 读取所有数据并构建内存对象（Player / Item / Listing / Transaction）,已完成,P0-关键,#Core,services/persistence.py::load_all,2,LVZHEN ZHOU,已完成,Player/Listing/Transaction 已用 dataclass；Item 待 JIAFENG
+GETS,系统启动,数据完整性校验,加载时校验外键完整性（如 inventory 中的 item_id 是否存在），不一致时打印警告但程序继续运行,已完成,P1-重要,#Core,使用自定义异常 DataIntegrityWarning,3,LVZHEN ZHOU,已完成,硬错误抛 DataIntegrityError；交易→挂单缺失为软警告
+GETS,系统启动,优雅退出,退出前自动保存所有内存数据到 data/*.json，覆盖 Ctrl+C / 正常退出两种情况,已完成,P0-关键,#Core,atexit + try/finally,4,LVZHEN ZHOU,已完成,App.shutdown 注册到 atexit；KeyboardInterrupt 也走保存
+GETS,系统启动,版本信息显示,启动时打印程序名、版本号、当前数据规模（玩家数 / 物品数 / 挂单数）,已完成,P2-一般,#UI,,5,LVZHEN ZHOU,已完成,App.show_banner
 GETS,主菜单,显示主菜单,展示所有顶级功能入口（玩家管理 / 市场 / 背包 / 报表 / 退出）,已规划,P0-关键,#UI,ui/cli.py,6,LVZHEN ZHOU,未完成,
 GETS,主菜单,菜单导航,通过数字 / 字母选择菜单项，进入子菜单或退出,已规划,P0-关键,#UI,,7,LVZHEN ZHOU,未完成,
 GETS,主菜单,非法输入处理,用户输入非法选项时提示并重新显示菜单，不崩溃,已规划,P0-关键,#UI,自定义 InvalidInputError,8,LVZHEN ZHOU,未完成,

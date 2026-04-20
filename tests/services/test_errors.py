@@ -33,6 +33,8 @@ from src.errors import (
 )
 
 
+
+
 # ---------------------------------------------------------------------------
 # 1. 异常树结构
 # ---------------------------------------------------------------------------
@@ -91,6 +93,8 @@ class TestExceptionHierarchy:
         assert issubclass(cls, TradeError)
 
 
+
+
 # ---------------------------------------------------------------------------
 # 2. 基类行为
 # ---------------------------------------------------------------------------
@@ -108,6 +112,8 @@ class TestBaseClass:
     def test_context_stored_as_dict(self):
         err = TradingSystemError(foo=1, bar="x")
         assert err.context == {"foo": 1, "bar": "x"}
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +193,8 @@ class TestConcreteExceptions:
         err = SerializationError(entity="Item", raw={"x": 1})
         assert err.context["entity"] == "Item"
         assert err.context["raw"] == {"x": 1}
+
+
 
 
 # ---------------------------------------------------------------------------
