@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 __all__ = ["Player"]
 
-
+from src.errors import InsufficientGoldError
 
 
 @dataclass
