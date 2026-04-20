@@ -24,6 +24,28 @@ class Player:
     inventory: list[dict] = field(default_factory=list)  # 暂为 dict 列表，等 InventorySlot 落地
     created_at: str = ""
 
+    def add_gold(self, amount: int) -> None:
+        if amount < 0:
+            raise ValueError("The number of gold(beryl) can not be negative")
+        else:
+            self.gold += amount
+
+    def spend_gold(self, amount: int) -> None:
+        if amount < 0:
+            raise ValueError("The number of gold(beryl) can not be negative")
+        else:
+            if self.gold < amount:
+                raise InsufficientGoldError
+            else:
+                self.gold -= amount
+
+    def can_be_deleted(self) -> bool:
+        if self.inventory:  # It still has items in bags :)
+            return True
+        else:
+            return  False
+
+
     @classmethod
     def from_dict(cls, d: dict) -> "Player":
         return cls(
