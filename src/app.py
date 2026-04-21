@@ -30,18 +30,14 @@ PROGRAM_NAME = "Game Equipment Trading System"
 VERSION = "0.1.0"
 
 
-
-
 UIRunner = Callable[["App"], None]
 
 
 def _default_ui_runner(app: "App") -> None:
-    """占位 UI runner——等 [src/ui/cli.py] 主菜单实现后替换。"""
-    print("\n[UI 主菜单尚未实现，按回车退出]")
-    try:
-        input()
-    except EOFError:
-        pass
+    """默认 UI runner——调用 CLI 主菜单。"""
+    # 延迟导入避免循环依赖
+    from src.ui.cli import run_cli
+    run_cli(app)
 
 
 class App:
