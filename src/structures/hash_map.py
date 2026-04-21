@@ -35,12 +35,19 @@ class hash_map():
             self._resize(self._capacity * 2)
 
 
-    def get(self, username: Any) -> Optional[Any]:
+    def get_id(self, username: Any) -> Optional[Any]:
         index = self._hash(username)
         user_data = self._buckets[index]
         for u, i in user_data:
             if u == username:
                 return i
+        return None
+
+    def get_username(self, id: Any) -> Optional[Any]:
+        for user_data in self._buckets:
+            u, i = user_data
+            if i == id:
+                return u
         return None
 
     def remove(self, username: Any) -> bool:
