@@ -1,4 +1,4 @@
-"""数据持久化服务（功能 ID 1-3 + 53）。
+"""数据持久化服务（功能 ID 1-3 + 53）
 
 职责：
 - 加载 / 保存 data/*.json
@@ -31,7 +31,6 @@ from src.errors import (
 from src.models import Listing, Player, Transaction
 from src.services import seed as _seed
 
-
 __all__ = ["Persistence", "Repository"]
 
 
@@ -43,7 +42,7 @@ __all__ = ["Persistence", "Repository"]
 
 @dataclass
 class Repository:
-    """加载后所有内存数据通过单一对象传递，详见 services-interface.md §4.2。"""
+    """加载后所有内存数据通过单一对象传递，详见 services-interface.md §4.2"""
 
     players: dict[str, Player] = field(default_factory=dict)
     items: dict[str, dict] = field(default_factory=dict)              # 待 Item 模型落地
@@ -64,9 +63,9 @@ _ID_PATTERN = re.compile(r"^([a-z]+)_(\d+)$")
 
 
 class Persistence:
-    """加载 / 保存全部 JSON 数据，并维护 ID 自增计数器。
+    """加载 / 保存全部 JSON 数据，并维护 ID 自增计数器
 
-    单例风格使用：启动时构造一次，挂在 ``App`` 上。
+    单例风格使用：启动时构造一次，挂在 ``App`` 上
     """
 
     def __init__(self, data_dir: str = "data") -> None:
@@ -92,9 +91,10 @@ class Persistence:
     # =====================================================================
 
     def seed_if_empty(self) -> bool:
-        """若 data/ 下无业务文件则生成种子数据集。# persists
+        """
+        若 data/ 下无业务文件则生成种子数据集
 
-        Returns: 是否触发了种子生成（True = 触发）
+        返回 是否触发了种子生成（True = 触发）
         """
         if self._has_any_business_file():
             return False
@@ -114,9 +114,10 @@ class Persistence:
     # =====================================================================
 
     def load_all(self) -> Repository:
-        """从 data/*.json 加载全部数据。# mutates self（刷新 ID 计数器）
+        """
+        从 data/*.json 加载全部数据# mutates self（刷新 ID 计数器）
 
-        Raises:
+        将抛出:
             PersistenceError: 文件读取失败
             SerializationError: JSON 反序列化失败
             DataIntegrityError: 外键完整性校验失败
@@ -221,7 +222,7 @@ class Persistence:
     # =====================================================================
 
     def backup_before_save(self, path: str) -> None:
-        """保存前将旧文件备份为 data/backup/<name>.bak（功能 ID 51）。"""
+        """保存前将旧文件备份为 data/backup/<name>.bak（功能 ID 51）"""
         if not os.path.exists(path):
             return
         os.makedirs(self.backup_dir, exist_ok=True)
@@ -232,7 +233,7 @@ class Persistence:
             raise PersistenceError(path=bak, op="backup") from e
 
     def reset(self) -> None:
-        """删除全部业务 JSON 文件（功能 ID 53）。"""
+        """删除全部业务 JSON 文件（功能 ID 53）"""
         for fname in _BUSINESS_FILES:
             p = self._path(fname)
             if os.path.exists(p):
@@ -342,7 +343,7 @@ class Persistence:
     # =====================================================================
 
     def _validate_integrity(self, repo: Repository) -> None:
-        """加载时校验外键完整性。
+        """加载时校验外键完整性
 
         硬错误（直接抛 DataIntegrityError）：
         - 玩家背包引用了不存在的物品
