@@ -104,7 +104,7 @@ class TradingCLI:
                 choice = self._show_main_menu()
 
                 if choice == "6" or choice.lower() == "q":
-                    print("\n请输入文本●▛▙请输入文本●▛▙请输入文本●▛▙请输入文本●▛▙请输入文本●▛▙请输入文本●▛▙请输入文本●▛▙\n\n")
+                    print("\nユーザーちゃん ●▛▙ 会いたい！●▛▙ ユーザーちゃん ●▛▙ 会いたい！●▛▙ ユーザーちゃん ●▛▙ 会いたい！●▛▙ ユーザーちゃん ●▛▙ 会いたい！●▛▙ ユーザーちゃん ●▛▙ 会いたい！●▛▙ \n\n")
                     break
                 if choice == "0":
                     self._handle_undo()
@@ -410,11 +410,12 @@ class TradingCLI:
 
     def _show_player_list(self) -> None:
         """显示玩家列表"""
-        print(f"\n共有 {len(self.repo.players)} 名玩家：")
+        players = self.app.player_service.list_all()
+        print(f"\n共有 {len(players)} 名玩家：")
         print("-" * 50)
         print(f"{'ID':<10} {'名字':<12} {'金币':>8} {'等级':>4}")
         print("-" * 50)
-        for p in self.repo.players.values():
+        for p in players:
             print(f"{p.player_id:<10} {p.name:<12} {p.gold:>8} {p.level:>4}")
 
 
@@ -442,17 +443,17 @@ class TradingCLI:
     def _query_player_by_id(self) -> None:
         """按 ID 查询玩家"""
         pid = input("请输入玩家 ID：").strip()
-        player = self.repo.players.get(pid)
-        if player:
+        try:
+            player = self.app.player_service.get_by_id(pid)
             print(f"\n找到玩家：{player.name}，金币 {player.gold}，等级 {player.level}")
-        else:
-            print(f"[提示] 玩家 {pid} 不存在")
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
 
 
     def _search_player_by_name(self) -> None:
         """按名字模糊查询玩家"""
         keyword = input("请输入名字关键词：").strip().lower()
-        matches = [p for p in self.repo.players.values() if keyword in p.name.lower()]
+        matches = self.app.player_service.search_by_name(keyword)
         print(f"\n找到 {len(matches)} 名匹配的玩家：")
         for p in matches:
             print(f"  {p.player_id}: {p.name} (金币 {p.gold})")
@@ -461,31 +462,25 @@ class TradingCLI:
     def _add_gold_debug(self) -> None:
         """金币充值（调试功能）"""
         pid = input("请输入玩家 ID：").strip()
-        player = self.repo.players.get(pid)
-        if not player:
-            print(f"[提示] 玩家 {pid} 不存在")
-            return
-
         amount_str = input("请输入充值金额：").strip()
         try:
             amount = int(amount_str)
-            if amount <= 0:
-                raise InvalidInputError(field="amount", value=amount)
         except ValueError:
             raise InvalidInputError(field="amount", value=amount_str)
 
-        player.add_gold(amount)
-        self.app.persistence.save_players(self.repo)
+        self.app.player_service.add_gold(pid, amount)
+        player = self.app.player_service.get_by_id(pid)
         print(f"[成功] 已为 {player.name} 充值 {amount} 金币，当前 {player.gold}")
 
 
     def _show_item_list(self) -> None:
         """显示物品列表"""
-        print(f"\n共有 {len(self.repo.items)} 件物品：")
+        items = self.app.item_service.list_all()
+        print(f"\n共有 {len(items)} 件物品：")
         print("-" * 50)
         print(f"{'ID':<10} {'分类':<20} {'稀有度':<8}")
         print("-" * 50)
-        for item in self.repo.items.values():
+        for item in items:
             cat = item.get('category', 'unknown')
             rarity = item.get('rarity', 'unknown')
             print(f"{item['item_id']:<10} {cat:<20} {rarity:<8}")
@@ -511,13 +506,13 @@ class TradingCLI:
     def _query_item_by_id(self) -> None:
         """按 ID 查询物品"""
         iid = input("请输入物品 ID：").strip()
-        item = self.repo.items.get(iid)
-        if item:
+        try:
+            item = self.app.item_service.get_by_id(iid)
             name = item.get('name', 'Unknown')
             cat = item.get('category', 'unknown')
             print(f"\n找到物品：{name} (分类：{cat})")
-        else:
-            print(f"[提示] 物品 {iid} 不存在")
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
 
 
     def _show_inventory(self) -> None:
@@ -542,7 +537,7 @@ class TradingCLI:
 
     def _show_active_listings(self) -> None:
         """显示活跃挂单"""
-        active = [l for l in self.repo.listings.values() if l.status == "active"]
+        active = self.app.market_service.list_active()
         print(f"\n共有 {len(active)} 个活跃挂单：")
         print("-" * 60)
         print(f"{'挂单ID':<10} {'卖家':<10} {'物品':<10} {'数量':>4} {'单价':>8}")
@@ -597,10 +592,7 @@ class TradingCLI:
         except ValueError:
             raise InvalidInputError(field="price", value="non-numeric")
 
-        matches = [
-            l for l in self.repo.listings.values()
-            if l.status == "active" and min_p <= l.price <= max_p
-        ]
+        matches = self.app.market_service.query_by_price_range(min_p, max_p)
         print(f"\n价格区间 [{min_p}, {max_p}] 内有 {len(matches)} 个挂单：")
         for l in sorted(matches, key=lambda x: x.price)[:10]:
             item = self.repo.items.get(l.item_id, {})
@@ -612,17 +604,16 @@ class TradingCLI:
 
     def _sort_listings(self) -> None:
         """排序展示挂单"""
-        active = [l for l in self.repo.listings.values() if l.status == "active"]
         sort_by = input("排序方式 (1=价格升序, 2=价格降序, 3=时间升序, 4=时间降序)：").strip()
 
         if sort_by == "1":
-            sorted_list = sorted(active, key=lambda x: x.price)
+            sorted_list = self.app.market_service.list_active(sort_by="price", desc=False)
         elif sort_by == "2":
-            sorted_list = sorted(active, key=lambda x: x.price, reverse=True)
+            sorted_list = self.app.market_service.list_active(sort_by="price", desc=True)
         elif sort_by == "3":
-            sorted_list = sorted(active, key=lambda x: x.created_at)
+            sorted_list = self.app.market_service.list_active(sort_by="created_at", desc=False)
         elif sort_by == "4":
-            sorted_list = sorted(active, key=lambda x: x.created_at, reverse=True)
+            sorted_list = self.app.market_service.list_active(sort_by="created_at", desc=True)
         else:
             raise InvalidInputError(field="sort_by", value=sort_by)
 
@@ -636,18 +627,11 @@ class TradingCLI:
     def _show_player_transactions(self) -> None:
         """显示玩家成交历史"""
         pid = input("请输入玩家 ID：").strip()
-        player = self.repo.players.get(pid)
-        if not player:
-            print(f"[提示] 玩家 {pid} 不存在")
-            return
-
-        txns = [
-            t for t in self.repo.transactions
-            if t.buyer_id == pid or t.seller_id == pid
-        ]
+        player = self.app.player_service.get_by_id(pid)
+        txns = self.app.transaction_service.by_player(pid)
         print(f"\n玩家 {player.name} 的成交记录（共 {len(txns)} 条）：")
         print("-" * 60)
-        for t in sorted(txns, key=lambda x: x.completed_at, reverse=True)[:10]:
+        for t in txns[:10]:
             role = "买" if t.buyer_id == pid else "卖"
             other = t.seller_id if t.buyer_id == pid else t.buyer_id
             print(f"  [{role}] {t.transaction_id}: 物品 {t.item_id} x{t.count} @ {t.price} → {other}")
@@ -655,28 +639,26 @@ class TradingCLI:
 
     def _show_top_gold(self) -> None:
         """嘉豪榜"""
-        players = sorted(self.repo.players.values(), key=lambda x: x.gold, reverse=True)
+        players = self.app.transaction_service.top_by_gold(10)
         print("\n嘉豪榜 Top 10：")
         print("-" * 40)
         print(f"{'排名':<6} {'玩家':<15} {'金币':>10}")
         print("-" * 40)
-        for i, p in enumerate(players[:10], 1):
+        for i, p in enumerate(players, 1):
             print(f"{i:<6} {p.name:<15} {p.gold:>10}")
 
 
     def _show_system_snapshot(self) -> None:
         """系统数据快照"""
-        active = sum(1 for l in self.repo.listings.values() if l.status == "active")
-        total_volume = sum(t.total for t in self.repo.transactions)
+        snap = self.app.transaction_service.snapshot()
 
         print(f"\n{'='*40}")
         print("           系统数据快照")
         print(f"{'='*40}")
-        print(f"  总玩家数：{len(self.repo.players)}")
-        print(f"  总物品数：{len(self.repo.items)}")
-        print(f"  活跃挂单：{active}")
-        print(f"  历史交易：{len(self.repo.transactions)}")
-        print(f"  累计交易额：{total_volume}")
+        print(f"  总玩家数：{snap['players']}")
+        print(f"  总物品数：{snap['items']}")
+        print(f"  活跃挂单：{snap['active_listings']}")
+        print(f"  累计交易额：{snap['total_volume']}")
         print(f"{'='*40}")
 
 

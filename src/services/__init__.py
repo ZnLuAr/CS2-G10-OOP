@@ -1,8 +1,21 @@
-"""
-业务逻辑层。
+"""业务逻辑层。"""
 
-预期模块：
-- market.py        市场撮合：挂单、购买、查询
-- persistence.py   数据加载 / 保存（JSON 文件）
-- seed.py          首次运行时生成初始数据集
-"""
+from .inventory import Inventory
+from .item_service import ItemService
+from .logger import Log, log
+from .market import MarketService
+from .persistence import Persistence, Repository
+from .player_service import PlayerService
+from .transaction import TransactionService
+
+__all__ = [
+    "Inventory",
+    "ItemService",
+    "Log",
+    "log",
+    "MarketService",
+    "Persistence",
+    "PlayerService",
+    "Repository",
+    "TransactionService",
+]

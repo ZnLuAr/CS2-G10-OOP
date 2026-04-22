@@ -240,4 +240,40 @@
   - 撤销栈目前仅演示于 "撤销挂单"，后续可扩展至删除物品等可逆操作
   - CLI 层异常路径测试（模拟 KeyboardInterrupt）因 mock 复杂度暂缓
 
+### [2026-04-21] 补服务层代码骨架（service framework Phase 1）
+
+- **变更内容**：
+  - 新增 6 个服务模块：
+    - [`src/services/logger.py`](../../src/services/logger.py)
+    - [`src/services/player_service.py`](../../src/services/player_service.py)
+    - [`src/services/transaction.py`](../../src/services/transaction.py)
+    - [`src/services/item_service.py`](../../src/services/item_service.py)
+    - [`src/services/market.py`](../../src/services/market.py)
+    - [`src/services/inventory.py`](../../src/services/inventory.py)
+  - 修改 [`src/services/__init__.py`](../../src/services/__init__.py)，统一导出 service 层边界
+  - 修改 [`src/app.py`](../../src/app.py)：bootstrap 后初始化 `player_service` / `item_service` / `transaction_service` / `market_service`
+  - 修改 [`src/ui/cli.py`](../../src/ui/cli.py)：
+    - 玩家列表 / 按 ID 查询 / 名字搜索 / 金币充值改走 `PlayerService`
+    - 物品列表 / 按 ID 查询改走 `ItemService`
+    - 活跃挂单 / 区间查询 / 排序 / 撤销挂单改走 `MarketService`
+    - 玩家成交历史 / 富豪榜 / 系统快照改走 `TransactionService`
+  - 新增 4 份服务层测试：
+    - [`tests/services/test_player_service.py`](../../tests/services/test_player_service.py)
+    - [`tests/services/test_transaction_service.py`](../../tests/services/test_transaction_service.py)
+    - [`tests/services/test_item_service.py`](../../tests/services/test_item_service.py)
+    - [`tests/services/test_market_service.py`](../../tests/services/test_market_service.py)
+- **原因**：
+  - 之前只有文档接口，没有代码层可 import 的 service 边界，导致 CLI 只能直接操作 `repo`
+  - 为了推进“历史与报表”功能，必须先补 `TransactionService` 等最小可依赖骨架
+- **关键设计决策**：
+  - 这一轮只实现当前数据模型下安全可落地的方法：查询、报表、轻量写操作（如加金币、取消挂单）
+  - 明确保留 `NotImplementedError` 的接口：`ItemService.create_item/delete_item`、`MarketService.create_listing/buy/settle_pending`、`Inventory` 全部真实操作
+  - `Inventory` 只保留骨架，不提前固化过渡实现，避免影响后续双向链表版本
+- **测试**：
+  - 新增服务层测试 35 个
+  - 全量测试通过：**140 passed**
+- **遗留问题**：
+  - `Item` 多态层、`CatalogTree`、`Inventory` 双向链表、市场事务回滚仍待各负责人继续实现
+  - 当前 service framework 先解决“可依赖开发”，不是最终完整业务层
+
 <!-- 在此添加新条目 -->
