@@ -4,10 +4,10 @@ GETS,系统启动,数据加载,启动时从 data/*.json 读取所有数据并构
 GETS,系统启动,数据完整性校验,加载时校验外键完整性（如 inventory 中的 item_id 是否存在），不一致时打印警告但程序继续运行,已完成,P1-重要,#Core,使用自定义异常 DataIntegrityWarning,3,LVZHEN ZHOU,已完成,硬错误抛 DataIntegrityError；交易→挂单缺失为软警告
 GETS,系统启动,优雅退出,退出前自动保存所有内存数据到 data/*.json，覆盖 Ctrl+C / 正常退出两种情况,已完成,P0-关键,#Core,atexit + try/finally,4,LVZHEN ZHOU,已完成,App.shutdown 注册到 atexit；KeyboardInterrupt 也走保存
 GETS,系统启动,版本信息显示,启动时打印程序名、版本号、当前数据规模（玩家数 / 物品数 / 挂单数）,已完成,P2-一般,#UI,,5,LVZHEN ZHOU,已完成,App.show_banner
-GETS,主菜单,显示主菜单,展示所有顶级功能入口（玩家管理 / 市场 / 背包 / 报表 / 退出）,已规划,P0-关键,#UI,ui/cli.py,6,LVZHEN ZHOU,未完成,
-GETS,主菜单,菜单导航,通过数字 / 字母选择菜单项，进入子菜单或退出,已规划,P0-关键,#UI,,7,LVZHEN ZHOU,未完成,
-GETS,主菜单,非法输入处理,用户输入非法选项时提示并重新显示菜单，不崩溃,已规划,P0-关键,#UI,自定义 InvalidInputError,8,LVZHEN ZHOU,未完成,
-GETS,主菜单,操作撤销,支持撤销上一步可逆操作（如取消挂单、误删物品），基于操作栈,已规划,P1-重要,#Structure-Stack,使用自实现 Stack；记录最近 N 步,9,LVZHEN ZHOU,未完成,
+GETS,主菜单,显示主菜单,展示所有顶级功能入口（玩家管理 / 市场 / 背包 / 报表 / 退出）,已完成,P0-关键,#UI,ui/cli.py,6,LVZHEN ZHOU,已完成,src/ui/cli.py::TradingCLI._show_main_menu
+GETS,主菜单,菜单导航,通过数字 / 字母选择菜单项，进入子菜单或退出,已完成,P0-关键,#UI,,7,LVZHEN ZHOU,已完成,src/ui/cli.py::TradingCLI._handle_main_choice + _prompt_choice
+GETS,主菜单,非法输入处理,用户输入非法选项时提示并重新显示菜单，不崩溃,已完成,P0-关键,#UI,自定义 InvalidInputError,8,LVZHEN ZHOU,已完成,src/ui/cli.py::run() 捕获 InvalidInputError 并重绘菜单
+GETS,主菜单,操作撤销,支持撤销上一步可逆操作（如取消挂单、误删物品），基于操作栈,已完成,P1-重要,#Structure-Stack,使用自实现 Stack；记录最近 N 步,9,LVZHEN ZHOU,已完成,src/ui/cli.py::OperationStack + _handle_undo
 GETS,玩家管理,创建玩家,输入玩家名 + 初始金币，生成 player_id 后保存到内存与文件,已规划,P0-关键,#CRUD,name 长度 1-20，gold ≥ 0,10,WEIJIE ZHOU,未完成,
 GETS,玩家管理,玩家列表,展示所有玩家（ID / 名 / 金币 / 背包数量），支持按金币 / 名字排序,已规划,P0-关键,#Read,排序使用通用比较函数,11,WEIJIE ZHOU,未完成,
 GETS,玩家管理,玩家详情,选定玩家后查看完整信息：基本属性 + 背包内容 + 挂单中物品 + 历史成交,已规划,P0-关键,#Read,聚合多表查询,12,WEIJIE ZHOU,未完成,

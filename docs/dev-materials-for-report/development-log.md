@@ -185,4 +185,59 @@
   - `CatalogTree` 等 XINGZHOU 实现自实现 Tree 后包装
   - 完整性校验中"软警告"目前 print，等 logger 落地后改 `log.warn`
 
+### [2026-04-21] 制定主菜单系统实现计划（功能 ID 6-9）
+
+- **变更内容**：
+  - 制定 [`feat/main-menu`](../../../..) 分支开发计划，见 [Claude Code 计划文件](../../../.claude/plans/snuggly-cuddling-petal.md)
+  - 确定架构：单一文件 `src/ui/cli.py` 承载 CLI 交互，通过 `run_cli(app)` 注入 App 实例
+  - 明确菜单层级：主菜单 6 个顶级入口 → 各子菜单 → 统一返回键 "b"
+  - 设计操作撤销栈（功能 ID 9）：自实现 `OperationStack`（max_size=20），支持撤销挂单、删除物品等可逆操作
+  - 规定异常处理策略：CLI 层捕获全部异常，用户可见消息从 `e.message` 取，服务层只抛不译
+  - 更新测试思路：用 `monkeypatch` 模拟输入序列，验证菜单导航与异常分支
+- **原因**：
+  - 功能 ID 1-5（系统启动）已完成，UI 层是下一个阻塞点——没有菜单，后续玩家/物品/市场功能无法交互验证
+  - 需要在服务层（PlayerService / MarketService 等）由其他组员实现前，先把 CLI 外壳和菜单导航打通
+- **关键设计决策**：
+  - 保留 `_default_ui_runner` 作为测试注入点，但默认改为导入 `from src.ui.cli import run_cli`
+  - 撤销栈独立实现（不混用 `src/structures/stack.py`），避免操作元数据与通用 Stack 耦合
+  - 非法输入统一抛 `InvalidInputError`（已在 errors/validation.py 定义），CLI 捕获后翻译为用户提示
+- **遗留问题**：
+  - 各子菜单的具体功能依赖下游服务：`PlayerService`（WEIJIE ZHOU）、`ItemService`（JIAFENG YE）、`Inventory`（XINGZHOU PENG）、`MarketService`（MINGJIN LI）
+  - 计划先实现菜单外壳 + 已有数据的只读展示（如玩家列表、物品列表），写操作待服务层对接
+
+### [2026-04-21] 实现主菜单系统（功能 ID 6-9）
+
+- **变更内容**：
+  - 新建 [`src/ui/cli.py`](../../src/ui/cli.py)：
+    - `TradingCLI` 类承载全部交互逻辑
+    - 6 个顶级菜单入口（玩家 / 物品 / 背包 / 市场 / 报表 / 退出）
+    - 5 个子菜单层级，统一 "b" 键返回
+    - `InvalidInputError` 捕获并重新显示菜单（功能 ID 8）
+    - 自实现 `OperationStack`（max_size=20，FIFO 淘汰），支持撤销挂单（功能 ID 9）
+  - 修改 [`src/app.py`](../../src/app.py)：`run_cli` 延迟导入，替代占位 UI runner
+  - 已实现的可交互功能：玩家列表/详情/搜索、物品列表/详情/搜索、市场挂单浏览/撤销/价格查询/排序、富豪榜、系统快照、金币充值（调试）
+  - 标记功能 ID 6-9 为已完成
+  - 全部 73 个测试通过
+- **关键设计决策**：
+  - CLI 内部循环捕获全部异常，符合 "服务层只抛、UI 层翻译" 的分层原则
+  - 撤销栈独立实现（不混用 structures/stack.py），避免操作元数据与通用栈耦合
+  - 写操作（创建玩家、挂单上架、购买等）留待各服务层负责人实现，当前以占位提示替代
+- **CLI 占位提示清单**（`src/ui/cli.py` 中以 `"[XXX] 功能待 YYY 实现"` 形式提示用户）：
+  - 玩家管理：创建玩家、修改玩家名、删除玩家 → 待 `PlayerService`（WEIJIE ZHOU）
+  - 物品管理：按分类浏览 → 待 `CatalogTree`（XINGZHOU PENG）
+  - 背包管理：按稀有度排序、移除物品、添加物品、容量信息 → 待 `Inventory`（XINGZHOU PENG）
+  - 交易市场：挂单上架、按分类筛选、购买物品 → 待 `MarketService`（MINGJIN LI）
+  - 历史与报表：物品成交历史、价格统计、交易额榜 → 待 `TransactionService`（MINGJIN LI）
+- **测试**：新增 [`tests/ui/test_cli.py`](../../tests/ui/test_cli.py) 28 个用例
+  - `OperationStack` 数据结构测试（LIFO、FIFO 淘汰、空栈边界）
+  - 主菜单导航与子菜单返回测试
+  - 非法输入处理测试（功能 ID 8）
+  - 查询功能测试（玩家/物品/挂单按 ID、名字搜索）
+  - 数据展示测试（快照、富豪榜、成交历史）
+  - 使用 monkeypatch 模拟输入序列，避免真实交互
+- **遗留问题**：
+  - 上述 14 个菜单项待各服务层负责人对接后，从 print 占位提示改为实际业务调用
+  - 撤销栈目前仅演示于 "撤销挂单"，后续可扩展至删除物品等可逆操作
+  - CLI 层异常路径测试（模拟 KeyboardInterrupt）因 mock 复杂度暂缓
+
 <!-- 在此添加新条目 -->
