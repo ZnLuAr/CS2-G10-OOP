@@ -102,6 +102,10 @@ class PlayerService:
         log.info("player", "gold_spent", player_id=player_id, amount=amount)
 
     def delete(self, player_id: str) -> None:
+        # TODO(perf): 检查活跃挂单当前是全量扫描 repo.listings
+        # 数据量大时应在 Repository 中维护 seller_id -> active_listing_ids 索引
+        # 详见 docs/dev-materials-for-report/development-log.md "性能遗留项 TODO"
+        # 如算法优化，以俟君子🙏
         player = self.get_by_id(player_id)
         if player.inventory:
             raise InventoryNotEmptyError(player_id=player_id)

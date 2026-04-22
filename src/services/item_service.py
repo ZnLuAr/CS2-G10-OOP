@@ -22,10 +22,9 @@ class ItemService:
         return item
 
     def list_all(self, category_prefix: str | None = None) -> list[dict]:
-        items = list(self.repo.items.values())
         if category_prefix is None:
-            return items
-        return [it for it in items if it.get("category", "").startswith(category_prefix)]
+            return list(self.repo.items.values())
+        return self.items_in_category(category_prefix)
 
     def browse_catalog(self, node_key: str = "root") -> dict:
         if node_key == "root":
@@ -40,7 +39,9 @@ class ItemService:
         return found
 
     def items_in_category(self, category: str) -> list[dict]:
-        return [it for it in self.repo.items.values() if it.get("category", "").startswith(category)]
+        for it in self.repo.items.values():
+            if it.get("category", "").startswith(category):
+                return it
 
     def create_item(self, payload: dict) -> dict:
         raise NotImplementedError("待 Item 多态层落地后实现")

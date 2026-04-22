@@ -104,7 +104,7 @@ class TradingCLI:
                 choice = self._show_main_menu()
 
                 if choice == "6" or choice.lower() == "q":
-                    print("\nユーザーちゃん ●▛▙ 会いたい！●▛▙ ユーザーちゃん ●▛▙ 会いたい！●▛▙ ユーザーちゃん ●▛▙ 会いたい！●▛▙ ユーザーちゃん ●▛▙ 会いたい！●▛▙ ユーザーちゃん ●▛▙ 会いたい！●▛▙ \n\n")
+                    print("\n ……系统关闭…… \n\n")
                     break
                 if choice == "0":
                     self._handle_undo()

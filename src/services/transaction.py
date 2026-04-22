@@ -25,6 +25,10 @@ class TransactionService:
         log.info("transaction", "appended", transaction_id=txn.transaction_id)
 
     def by_player(self, player_id: str, role: str = "both") -> list[Transaction]:
+        # TODO(perf): 目前 O(N) 全量扫描 repo.transactions
+        # 数据量大时可在 Repository 中维护 player_id -> [txn_ref] 的二级索引
+        # 详见 docs/dev-materials-for-report/development-log.md "性能遗留项 TODO"
+        # 如算法优化，以俟君子🙏
         if role not in {"buyer", "seller", "both"}:
             raise InvalidInputError(field="role", value=role)
 
@@ -58,6 +62,10 @@ class TransactionService:
         return sorted(self.repo.players.values(), key=lambda p: p.gold, reverse=True)[:n]
 
     def top_by_volume(self, n: int = 10) -> list[tuple[Player, int]]:
+        # TODO(perf): 每次查询都全量聚合所有交易
+        # 数据量大时应改为增量累计（Transaction.append 时更新玩家 volume 缓存）
+        # 详见 docs/dev-materials-for-report/development-log.md "性能遗留项 TODO"
+        # 如算法优化，以俟君子🙏
         volume: dict[str, int] = defaultdict(int)
         for txn in self.repo.transactions:
             volume[txn.buyer_id] += txn.total

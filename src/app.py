@@ -125,7 +125,7 @@ class App:
             print(f"[启动失败] {e.message}", file=sys.stderr)
             return 2
         except Exception as e:                   # noqa: BLE001 - 进程级兜底
-            print(f"[FATAL] 寄，未预期异常：{type(e).__name__}: {e}",
+            print(f"[FATAL] 未预期异常：{type(e).__name__}: {e}",
                   file=sys.stderr)
             traceback.print_exc()
             return 1

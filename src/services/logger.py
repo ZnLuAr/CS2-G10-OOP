@@ -7,8 +7,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import sys
+from datetime import datetime, UTC
 
 __all__ = ["Log", "log"]
 
@@ -17,7 +17,7 @@ __all__ = ["Log", "log"]
 
 class Log:
     def _emit(self, level: str, module: str, event: str, **context) -> None:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
         context_str = " ".join(f"{k}={v!r}" for k, v in sorted(context.items()))
         line = f"[{timestamp}] [{level}] [{module}] {event}"
         if context_str:
