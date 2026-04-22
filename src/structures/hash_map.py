@@ -20,41 +20,35 @@ class hash_map():
             for u, i in bucket:
                 self.put(u, i)
 
-    def put(self, username:Any, id:Any) -> None:
-        index = self._hash(username)
+    def put(self, id:Any, username:Any) -> None:
+        index = self._hash(id)
         user_data = self._buckets[index]
-        for k, (u, _) in enumerate(user_data):
-            if username == u:
-                user_data = (username, id) #update
+        for k, (i, _) in enumerate(user_data):
+            if id == i:
+                user_data[k] = (id, username) #update
                 return
 
-        user_data.append((username, id))
+        user_data.append((id, username))
         self._size += 1
 
         if self._size > self._capacity * 0.75:
             self._resize(self._capacity * 2)
 
 
-    def get_id(self, username: Any) -> Optional[Any]:
-        index = self._hash(username)
-        user_data = self._buckets[index]
-        for u, i in user_data:
-            if u == username:
-                return i
-        return None
-
     def get_username(self, id: Any) -> Optional[Any]:
-        for user_data in self._buckets:
-            u, i = user_data
+        index = self._hash(id)
+        user_data = self._buckets[index]
+        for i, u in user_data:
             if i == id:
                 return u
         return None
 
-    def remove(self, username: Any) -> bool:
-        index = self._hash(username)
+
+    def remove(self, id: Any) -> bool:
+        index = self._hash(id)
         user_data = self._buckets[index]
-        for k, (u, _) in enumerate(user_data):
-            if u == username:
+        for k, (i, _) in enumerate(user_data):
+            if id == i:
                 del user_data[k]
                 self._size -= 1
                 return True
