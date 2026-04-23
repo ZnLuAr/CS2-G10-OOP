@@ -324,4 +324,29 @@
   - 当前“价格走势”仍是时间倒序明细展示，不是可视化趋势图
   - 交易额榜与玩家历史目前仍基于线性扫描 / 聚合，性能优化已单列到上方“性能遗留项 TODO”
 
+### [2026-04-22] 完成操作日志落盘（功能 ID 56）
+
+- **变更内容**：
+  - 扩展 [`src/services/logger.py`](../../src/services/logger.py)：
+    - 保留控制台输出
+    - 追加写入 `data/operation.log`
+    - 文件写入失败时吞 `OSError`，不影响业务流程
+  - 修改 [`src/services/persistence.py`](../../src/services/persistence.py)：
+    - `_validate_integrity()` 中“交易引用缺失挂单”的软警告不再 `print`
+    - 改为 `log.warn("persistence", "txn_references_missing_listing", ...)`
+  - 新增 [`tests/services/test_logger.py`](../../tests/services/test_logger.py)
+  - 更新 [`tests/services/test_persistence.py`](../../tests/services/test_persistence.py)：补“软警告只告警不抛异常”测试
+  - 更新 [`docs/services-interface.md`](../services-interface.md)：logger 小节补充实际落盘行为
+- **原因**：
+  - `docs/error-and-log-design.md` 与功能列表都要求关键操作写入 `data/operation.log`
+  - 之前 logger 只有统一入口，没有真正落盘；Persistence 软警告也还停留在 `print`
+- **关键设计决策**：
+  - logger 文件写入失败只吞 `OSError`，不吞更宽泛的 `Exception`，避免静默掩盖真实代码 bug
+  - 保持 logger 对外接口不变：`log.info/warn/error/debug(module, event, **context)`
+  - 软警告行为不变：仍然只告警、不抛异常，只是输出介质从 `print` 改为 `log.warn`
+- **测试**：
+  - `tests/services/test_logger.py` + `tests/services/test_persistence.py` 相关测试通过：**24 passed**
+- **遗留问题**：
+  - 当前只完成了日志落盘，不包含 CLI 菜单上的“手动保存 / 数据重置”入口（留到下一轮）
+
 <!-- 在此添加新条目 -->

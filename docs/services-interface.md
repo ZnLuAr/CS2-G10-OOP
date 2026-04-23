@@ -147,10 +147,15 @@ class Repository:
 
 ## 5. `logger.py` 日志
 
-详见 [`error-and-log-design.md §6`](./error-and-log-design.md)，此处仅列签名：
+详见 [`error-and-log-design.md §6`](./error-and-log-design.md)。当前实现：
+
+- 控制台输出：`INFO/DEBUG -> stdout`，`WARN/ERROR -> stderr`
+- 同步 append 写入 `data/operation.log`
+- 文件写入失败时静默忽略，不中断业务流程
 
 ```python
 class Log:
+    def __init__(self, log_file: str | None = "data/operation.log") -> None: ...
     def debug(self, module: str, event: str, **context) -> None: ...
     def info(self, module: str, event: str, **context) -> None: ...
     def warn(self, module: str, event: str, **context) -> None: ...
