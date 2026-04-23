@@ -109,7 +109,7 @@ class TransactionService:
 
 
     def snapshot(self) -> dict:
-        # 物品挂单时保留一个快照，保存物品当前的状态
+        # 返回系统全局的统计快照，包含玩家、物品、挂单及交易额
         return {
             "players": len(self.repo.players),
             "items": len(self.repo.items),

@@ -346,7 +346,7 @@ class TestDataDisplay:
         fresh_cli.run()
 
         out = capsys.readouterr().out
-        assert "富豪榜" in out
+        assert "嘉豪榜" in out
 
     def test_player_transactions_display(self, fresh_cli, mock_input, capsys):
         """玩家成交历史（可能为空）"""

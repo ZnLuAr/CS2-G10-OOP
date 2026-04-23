@@ -634,7 +634,8 @@ class TradingCLI:
         if not txns:
             print("  该玩家暂无成交记录")
             return
-        for t in txns:
+        shown = txns[:20]
+        for t in shown:
             role = "买" if t.buyer_id == pid else "卖"
             other = t.seller_id if t.buyer_id == pid else t.buyer_id
             item = self.repo.items.get(t.item_id, {})
@@ -643,6 +644,8 @@ class TradingCLI:
                 f"  {t.completed_at} [{role}] {item_name}({t.item_id}) "
                 f"x{t.count} @ {t.price} = {t.total} → {other}"
             )
+        if len(txns) > len(shown):
+            print(f"  ... 还有 {len(txns) - len(shown)} 条未显示")
 
 
     def _show_item_transactions(self) -> None:
@@ -663,13 +666,16 @@ class TradingCLI:
         if not txns:
             print("  该物品/类型暂无成交记录")
             return
-        for t in txns:
+        shown = txns[:20]
+        for t in shown:
             item = self.repo.items.get(t.item_id, {})
             item_name = item.get("name", t.item_id)
             print(
                 f"  {t.completed_at} {item_name}({t.item_id}) "
                 f"买家={t.buyer_id} 卖家={t.seller_id} x{t.count} @ {t.price} = {t.total}"
             )
+        if len(txns) > len(shown):
+            print(f"  ... 还有 {len(txns) - len(shown)} 条未显示")
 
 
     def _show_price_stats(self) -> None:
