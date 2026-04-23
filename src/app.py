@@ -1,4 +1,4 @@
-"""应用生命周期编排（功能 ID 4-5）。
+"""应用生命周期编排（功能 ID 4-5）
 
 职责：
 - 启动横幅（程序名 / 版本 / 数据规模）
@@ -21,31 +21,28 @@ import traceback
 from typing import Callable
 
 from src.errors import TradingSystemError
+from src.services import ItemService, MarketService, PlayerService, TransactionService
 from src.services.persistence import Persistence, Repository
 
 __all__ = ["App", "VERSION", "PROGRAM_NAME"]
 
 
-PROGRAM_NAME = "Game Equipment Trading System"
+PROGRAM_NAME = "游戏装备交易系统"
 VERSION = "0.1.0"
-
-
 
 
 UIRunner = Callable[["App"], None]
 
 
 def _default_ui_runner(app: "App") -> None:
-    """占位 UI runner——等 [src/ui/cli.py] 主菜单实现后替换。"""
-    print("\n[UI 主菜单尚未实现，按回车退出]")
-    try:
-        input()
-    except EOFError:
-        pass
+    """默认 UI runner——调用 CLI 主菜单"""
+    # 延迟导入避免循环依赖
+    from src.ui.cli import run_cli
+    run_cli(app)
 
 
 class App:
-    """应用对象，负责整个进程的生命周期。
+    """应用对象，负责整个进程的生命周期
 
     属性:
         persistence: 持久化服务
@@ -59,6 +56,10 @@ class App:
         self.persistence = persistence or Persistence()
         self.ui_runner = ui_runner or _default_ui_runner
         self.repo: Repository | None = None
+        self.player_service: PlayerService | None = None
+        self.item_service: ItemService | None = None
+        self.transaction_service: TransactionService | None = None
+        self.market_service: MarketService | None = None
         self._save_registered = False
 
 
@@ -67,16 +68,25 @@ class App:
     # ------------------------------------------------------------------
 
     def bootstrap(self) -> Repository:
-        """种子（如需）+ 加载 + 注册退出钩子。返回填充好的 Repository。"""
+        """种子（如需）+ 加载 + 注册退出钩子，返回填充好的 Repository"""
         seeded = self.persistence.seed_if_empty()
         self.repo = self.persistence.load_all()
+        self.player_service = PlayerService(self.repo, self.persistence)
+        self.transaction_service = TransactionService(self.repo, self.persistence)
+        self.item_service = ItemService(self.repo, self.persistence)
+        self.market_service = MarketService(
+            self.repo,
+            self.persistence,
+            player_service=self.player_service,
+            transaction_service=self.transaction_service,
+        )
         self._register_save_on_exit()
         if seeded:
-            print("[首次启动] 已生成初始数据集。")
+            print("[首次启动] 已生成初始数据集")
         return self.repo
 
     def show_banner(self) -> None:
-        """打印程序名 / 版本 / 当前数据规模（功能 ID 5）。"""
+        """打印程序名 / 版本 / 当前数据规模（功能 ID 5）"""
         assert self.repo is not None, "调用 show_banner 前必须先 bootstrap()"
         print(f"\n=== {PROGRAM_NAME} v{VERSION} ===")
         print(f"     ようこそ、剣と魔法の世界へ（大噓    \n\n")
@@ -86,12 +96,12 @@ class App:
               f"  历史交易: {len(self.repo.transactions)}")
 
     def shutdown(self) -> None:
-        """优雅退出：保存全部数据。幂等——多次调用安全（功能 ID 4）。"""
+        """高雅不堪地关机，保存全部数据（功能 ID 4）"""
         if self.repo is None:
             return
         try:
             self.persistence.save_all(self.repo)
-        except Exception as e:                   # noqa: BLE001 - 兜底
+        except Exception as e:                   # 兜底
             # 退出阶段不能再向上抛——尽力而为，打印错误
             print(f"[ERROR] 退出时保存数据失败：{type(e).__name__}: {e}",
                   file=sys.stderr)
@@ -102,7 +112,7 @@ class App:
     # ------------------------------------------------------------------
 
     def run(self) -> int:
-        """启动应用。返回进程退出码（0 = 正常）。"""
+        """启动应用、返回进程退出码（0 = 正常）"""
         try:
             self.bootstrap()
             self.show_banner()
@@ -114,8 +124,8 @@ class App:
             # 启动期被服务层抛出的可预期错误（例如数据完整性失败）
             print(f"[启动失败] {e.message}", file=sys.stderr)
             return 2
-        except Exception as e:                   # noqa: BLE001 - 进程级兜底
-            print(f"[FATAL] 寄，未预期异常：{type(e).__name__}: {e}",
+        except Exception as e:                   # 进程级兜底
+            print(f"[FATAL] 未预期异常：{type(e).__name__}: {e}",
                   file=sys.stderr)
             traceback.print_exc()
             return 1

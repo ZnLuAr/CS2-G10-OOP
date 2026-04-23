@@ -4,10 +4,10 @@ GETS,系统启动,数据加载,启动时从 data/*.json 读取所有数据并构
 GETS,系统启动,数据完整性校验,加载时校验外键完整性（如 inventory 中的 item_id 是否存在），不一致时打印警告但程序继续运行,已完成,P1-重要,#Core,使用自定义异常 DataIntegrityWarning,3,LVZHEN ZHOU,已完成,硬错误抛 DataIntegrityError；交易→挂单缺失为软警告
 GETS,系统启动,优雅退出,退出前自动保存所有内存数据到 data/*.json，覆盖 Ctrl+C / 正常退出两种情况,已完成,P0-关键,#Core,atexit + try/finally,4,LVZHEN ZHOU,已完成,App.shutdown 注册到 atexit；KeyboardInterrupt 也走保存
 GETS,系统启动,版本信息显示,启动时打印程序名、版本号、当前数据规模（玩家数 / 物品数 / 挂单数）,已完成,P2-一般,#UI,,5,LVZHEN ZHOU,已完成,App.show_banner
-GETS,主菜单,显示主菜单,展示所有顶级功能入口（玩家管理 / 市场 / 背包 / 报表 / 退出）,已规划,P0-关键,#UI,ui/cli.py,6,LVZHEN ZHOU,未完成,
-GETS,主菜单,菜单导航,通过数字 / 字母选择菜单项，进入子菜单或退出,已规划,P0-关键,#UI,,7,LVZHEN ZHOU,未完成,
-GETS,主菜单,非法输入处理,用户输入非法选项时提示并重新显示菜单，不崩溃,已规划,P0-关键,#UI,自定义 InvalidInputError,8,LVZHEN ZHOU,未完成,
-GETS,主菜单,操作撤销,支持撤销上一步可逆操作（如取消挂单、误删物品），基于操作栈,已规划,P1-重要,#Structure-Stack,使用自实现 Stack；记录最近 N 步,9,LVZHEN ZHOU,未完成,
+GETS,主菜单,显示主菜单,展示所有顶级功能入口（玩家管理 / 市场 / 背包 / 报表 / 退出）,已完成,P0-关键,#UI,ui/cli.py,6,LVZHEN ZHOU,已完成,src/ui/cli.py::TradingCLI._show_main_menu
+GETS,主菜单,菜单导航,通过数字 / 字母选择菜单项，进入子菜单或退出,已完成,P0-关键,#UI,,7,LVZHEN ZHOU,已完成,src/ui/cli.py::TradingCLI._handle_main_choice + _prompt_choice
+GETS,主菜单,非法输入处理,用户输入非法选项时提示并重新显示菜单，不崩溃,已完成,P0-关键,#UI,自定义 InvalidInputError,8,LVZHEN ZHOU,已完成,src/ui/cli.py::run() 捕获 InvalidInputError 并重绘菜单
+GETS,主菜单,操作撤销,支持撤销上一步可逆操作（如取消挂单、误删物品），基于操作栈,已完成,P1-重要,#Structure-Stack,使用自实现 Stack；记录最近 N 步,9,LVZHEN ZHOU,已完成,src/ui/cli.py::OperationStack + _handle_undo
 GETS,玩家管理,创建玩家,输入玩家名 + 初始金币，生成 player_id 后保存到内存与文件,已规划,P0-关键,#CRUD,name 长度 1-20，gold ≥ 0,10,WEIJIE ZHOU,未完成,
 GETS,玩家管理,玩家列表,展示所有玩家（ID / 名 / 金币 / 背包数量），支持按金币 / 名字排序,已规划,P0-关键,#Read,排序使用通用比较函数,11,WEIJIE ZHOU,未完成,
 GETS,玩家管理,玩家详情,选定玩家后查看完整信息：基本属性 + 背包内容 + 挂单中物品 + 历史成交,已规划,P0-关键,#Read,聚合多表查询,12,WEIJIE ZHOU,未完成,
@@ -41,12 +41,12 @@ GETS,交易,自购拦截,买家与卖家是同一人时拒绝交易并提示,已
 GETS,交易,挂单失效拦截,目标挂单 status ≠ active 时抛 ListingNotActiveError,已规划,P0-关键,#Exception,,40,MINGJIN LI,未完成,
 GETS,交易,交易确认,购买前显示确认信息（买卖双方 / 物品 / 金额），输入 y 确认才执行,已规划,P1-重要,#UI,,41,MINGJIN LI,未完成,
 GETS,交易队列,挂单成交队列,管理员模式：批量结算待成交挂单（演示队列 FIFO 处理）,已规划,P1-重要,#Structure-Queue,使用自实现 Queue,42,MINGJIN LI,未完成,
-GETS,历史与报表,玩家成交历史,查看指定玩家的全部成交记录（作为买家 + 作为卖家），按时间倒序,已规划,P1-重要,#Read,,43,LVZHEN ZHOU,未完成,
-GETS,历史与报表,物品成交历史,查看某个物品（按 item_id 或物品类型）的全部成交记录与价格走势,已规划,P1-重要,#Analytics,,44,LVZHEN ZHOU,未完成,
-GETS,历史与报表,价格统计,对指定物品 / 类型计算最低 / 最高 / 平均成交价（递归遍历交易树或线性扫描）,已规划,P1-重要,#Analytics #Recursion,,45,LVZHEN ZHOU,未完成,
-GETS,历史与报表,排行榜：富豪榜,按当前金币降序展示前 N 名玩家,已规划,P2-一般,#Analytics,,46,LVZHEN ZHOU,未完成,
-GETS,历史与报表,排行榜：交易额榜,按累计成交金额降序展示玩家,已规划,P2-一般,#Analytics,,47,LVZHEN ZHOU,未完成,
-GETS,历史与报表,系统数据快照,展示总玩家数 / 总物品数 / 活跃挂单数 / 累计交易额,已规划,P2-一般,#Analytics,,48,LVZHEN ZHOU,未完成,
+GETS,历史与报表,玩家成交历史,查看指定玩家的全部成交记录（作为买家 + 作为卖家），按时间倒序,已完成,P1-重要,#Read,,43,LVZHEN ZHOU,已完成,TransactionService.by_player + CLI 展示
+GETS,历史与报表,物品成交历史,查看某个物品（按 item_id 或物品类型）的全部成交记录与价格走势,已完成,P1-重要,#Analytics,,44,LVZHEN ZHOU,已完成,TransactionService.by_item/by_category + CLI 双入口
+GETS,历史与报表,价格统计,对指定物品 / 类型计算最低 / 最高 / 平均成交价（递归遍历交易树或线性扫描）,已完成,P1-重要,#Analytics #Recursion,,45,LVZHEN ZHOU,已完成,TransactionService.price_stats/price_stats_by_category + CLI 双入口
+GETS,历史与报表,排行榜：富豪榜,按当前金币降序展示前 N 名玩家,已完成,P2-一般,#Analytics,,46,LVZHEN ZHOU,已完成,TransactionService.top_by_gold + CLI 展示
+GETS,历史与报表,排行榜：交易额榜,按累计成交金额降序展示玩家,已完成,P2-一般,#Analytics,,47,LVZHEN ZHOU,已完成,TransactionService.top_by_volume + CLI 展示
+GETS,历史与报表,系统数据快照,展示总玩家数 / 总物品数 / 活跃挂单数 / 累计交易额,已完成,P2-一般,#Analytics,,48,LVZHEN ZHOU,已完成,TransactionService.snapshot + CLI 展示
 GETS,持久化,手动保存,菜单内提供"立即保存"选项，触发将内存数据写入 data/*.json,已规划,P0-关键,#Persistence,,49,LVZHEN ZHOU,未完成,
 GETS,持久化,自动保存,每次成功的写操作（创建 / 更新 / 删除 / 交易）后自动落盘,已规划,P0-关键,#Persistence,可对比手动 / 自动两种策略写入决策文档,50,LVZHEN ZHOU,未完成,
 GETS,持久化,数据备份,保存前将旧文件备份为 data/backup/*.json.bak，覆写失败时可恢复,已规划,P1-重要,#Persistence,,51,LVZHEN ZHOU,未完成,

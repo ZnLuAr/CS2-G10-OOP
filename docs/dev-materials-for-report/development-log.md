@@ -185,4 +185,143 @@
   - `CatalogTree` 等 XINGZHOU 实现自实现 Tree 后包装
   - 完整性校验中"软警告"目前 print，等 logger 落地后改 `log.warn`
 
+### [2026-04-21] 制定主菜单系统实现计划（功能 ID 6-9）
+
+- **变更内容**：
+  - 制定 [`feat/main-menu`](../../../..) 分支开发计划，见 [Claude Code 计划文件](../../../.claude/plans/snuggly-cuddling-petal.md)
+  - 确定架构：单一文件 `src/ui/cli.py` 承载 CLI 交互，通过 `run_cli(app)` 注入 App 实例
+  - 明确菜单层级：主菜单 6 个顶级入口 → 各子菜单 → 统一返回键 "b"
+  - 设计操作撤销栈（功能 ID 9）：自实现 `OperationStack`（max_size=20），支持撤销挂单、删除物品等可逆操作
+  - 规定异常处理策略：CLI 层捕获全部异常，用户可见消息从 `e.message` 取，服务层只抛不译
+  - 更新测试思路：用 `monkeypatch` 模拟输入序列，验证菜单导航与异常分支
+- **原因**：
+  - 功能 ID 1-5（系统启动）已完成，UI 层是下一个阻塞点——没有菜单，后续玩家/物品/市场功能无法交互验证
+  - 需要在服务层（PlayerService / MarketService 等）由其他组员实现前，先把 CLI 外壳和菜单导航打通
+- **关键设计决策**：
+  - 保留 `_default_ui_runner` 作为测试注入点，但默认改为导入 `from src.ui.cli import run_cli`
+  - 撤销栈独立实现（不混用 `src/structures/stack.py`），避免操作元数据与通用 Stack 耦合
+  - 非法输入统一抛 `InvalidInputError`（已在 errors/validation.py 定义），CLI 捕获后翻译为用户提示
+- **遗留问题**：
+  - 各子菜单的具体功能依赖下游服务：`PlayerService`（WEIJIE ZHOU）、`ItemService`（JIAFENG YE）、`Inventory`（XINGZHOU PENG）、`MarketService`（MINGJIN LI）
+  - 计划先实现菜单外壳 + 已有数据的只读展示（如玩家列表、物品列表），写操作待服务层对接
+
+### [2026-04-21] 实现主菜单系统（功能 ID 6-9）
+
+- **变更内容**：
+  - 新建 [`src/ui/cli.py`](../../src/ui/cli.py)：
+    - `TradingCLI` 类承载全部交互逻辑
+    - 6 个顶级菜单入口（玩家 / 物品 / 背包 / 市场 / 报表 / 退出）
+    - 5 个子菜单层级，统一 "b" 键返回
+    - `InvalidInputError` 捕获并重新显示菜单（功能 ID 8）
+    - 自实现 `OperationStack`（max_size=20，FIFO 淘汰），支持撤销挂单（功能 ID 9）
+  - 修改 [`src/app.py`](../../src/app.py)：`run_cli` 延迟导入，替代占位 UI runner
+  - 已实现的可交互功能：玩家列表/详情/搜索、物品列表/详情/搜索、市场挂单浏览/撤销/价格查询/排序、富豪榜、系统快照、金币充值（调试）
+  - 标记功能 ID 6-9 为已完成
+  - 全部 73 个测试通过
+- **关键设计决策**：
+  - CLI 内部循环捕获全部异常，符合 "服务层只抛、UI 层翻译" 的分层原则
+  - 撤销栈独立实现（不混用 structures/stack.py），避免操作元数据与通用栈耦合
+  - 写操作（创建玩家、挂单上架、购买等）留待各服务层负责人实现，当前以占位提示替代
+- **CLI 占位提示清单**（`src/ui/cli.py` 中以 `"[XXX] 功能待 YYY 实现"` 形式提示用户）：
+  - 玩家管理：创建玩家、修改玩家名、删除玩家 → 待 `PlayerService`（WEIJIE ZHOU）
+  - 物品管理：按分类浏览 → 待 `CatalogTree`（XINGZHOU PENG）
+  - 背包管理：按稀有度排序、移除物品、添加物品、容量信息 → 待 `Inventory`（XINGZHOU PENG）
+  - 交易市场：挂单上架、按分类筛选、购买物品 → 待 `MarketService`（MINGJIN LI）
+  - 历史与报表：物品成交历史、价格统计、交易额榜 → 待 `TransactionService`（MINGJIN LI）
+- **测试**：新增 [`tests/ui/test_cli.py`](../../tests/ui/test_cli.py) 28 个用例
+  - `OperationStack` 数据结构测试（LIFO、FIFO 淘汰、空栈边界）
+  - 主菜单导航与子菜单返回测试
+  - 非法输入处理测试（功能 ID 8）
+  - 查询功能测试（玩家/物品/挂单按 ID、名字搜索）
+  - 数据展示测试（快照、富豪榜、成交历史）
+  - 使用 monkeypatch 模拟输入序列，避免真实交互
+- **遗留问题**：
+  - 上述 14 个菜单项待各服务层负责人对接后，从 print 占位提示改为实际业务调用
+  - 撤销栈目前仅演示于 "撤销挂单"，后续可扩展至删除物品等可逆操作
+  - CLI 层异常路径测试（模拟 KeyboardInterrupt）因 mock 复杂度暂缓
+
+### [2026-04-21] 补服务层代码骨架（service framework Phase 1）
+
+- **变更内容**：
+  - 新增 6 个服务模块：
+    - [`src/services/logger.py`](../../src/services/logger.py)
+    - [`src/services/player_service.py`](../../src/services/player_service.py)
+    - [`src/services/transaction.py`](../../src/services/transaction.py)
+    - [`src/services/item_service.py`](../../src/services/item_service.py)
+    - [`src/services/market.py`](../../src/services/market.py)
+    - [`src/services/inventory.py`](../../src/services/inventory.py)
+  - 修改 [`src/services/__init__.py`](../../src/services/__init__.py)，统一导出 service 层边界
+  - 修改 [`src/app.py`](../../src/app.py)：bootstrap 后初始化 `player_service` / `item_service` / `transaction_service` / `market_service`
+  - 修改 [`src/ui/cli.py`](../../src/ui/cli.py)：
+    - 玩家列表 / 按 ID 查询 / 名字搜索 / 金币充值改走 `PlayerService`
+    - 物品列表 / 按 ID 查询改走 `ItemService`
+    - 活跃挂单 / 区间查询 / 排序 / 撤销挂单改走 `MarketService`
+    - 玩家成交历史 / 富豪榜 / 系统快照改走 `TransactionService`
+  - 新增 4 份服务层测试：
+    - [`tests/services/test_player_service.py`](../../tests/services/test_player_service.py)
+    - [`tests/services/test_transaction_service.py`](../../tests/services/test_transaction_service.py)
+    - [`tests/services/test_item_service.py`](../../tests/services/test_item_service.py)
+    - [`tests/services/test_market_service.py`](../../tests/services/test_market_service.py)
+- **原因**：
+  - 之前只有文档接口，没有代码层可 import 的 service 边界，导致 CLI 只能直接操作 `repo`
+  - 为了推进“历史与报表”功能，必须先补 `TransactionService` 等最小可依赖骨架
+- **关键设计决策**：
+  - 这一轮只实现当前数据模型下安全可落地的方法：查询、报表、轻量写操作（如加金币、取消挂单）
+  - 明确保留 `NotImplementedError` 的接口：`ItemService.create_item/delete_item`、`MarketService.create_listing/buy/settle_pending`、`Inventory` 全部真实操作
+  - `Inventory` 只保留骨架，不提前固化过渡实现，避免影响后续双向链表版本
+- **测试**：
+  - 新增服务层测试 35 个
+  - 全量测试通过：**140 passed**
+- **遗留问题**：
+  - `Item` 多态层、`CatalogTree`、`Inventory` 双向链表、市场事务回滚仍待各负责人继续实现
+  - 当前 service framework 先解决“可依赖开发”，不是最终完整业务层
+
+### [2026-04-22] 性能遗留项 TODO（来自 PR #8 review）
+
+> 这一项不是 bug，是为了避免“PR 回复随时间丢失”，把 reviewer 提出的性能改进点
+> 统一记录下来，便于后续负责人接手时直接找到上下文。
+> 对应代码处已以 `# TODO(perf): ...` 形式就地标注，并回指向本条。
+
+- **现状**：当前 service 层多处使用 O(N) 全量扫描 repo 集合，在 seed 级数据量下没有性能问题，但数据量大时会退化
+- **背景**：service framework Phase 1 刻意不在 `Repository` 中引入二级索引与缓存，避免提前固化数据结构，并保持 repo 单一信号源
+- **具体点位**：
+  1. [`src/services/transaction.py`](../../src/services/transaction.py)::`by_player` —— 每次按玩家查交易全量扫描 `repo.transactions`
+     - 优化方向：`Repository` 维护 `player_id -> [transaction_ref]` 索引，append 时更新
+  2. [`src/services/transaction.py`](../../src/services/transaction.py)::`top_by_volume` —— 每次查交易额榜全量聚合
+     - 优化方向：`TransactionService.append` 时增量更新玩家累计成交额缓存（仿 `snapshot` 思路）
+  3. [`src/services/player_service.py`](../../src/services/player_service.py)::`delete` —— 删除玩家时全量扫描 `repo.listings` 判断活跃挂单
+     - 优化方向：`Repository` 维护 `seller_id -> active_listing_ids` 索引；或在 `MarketService` 中暴露 `has_active_listings(player_id)` 封装点
+- **处理建议**：
+  - 本条**不在 Phase 1 修**，以免把 `Repository` 过早复杂化
+  - 等到 `MarketService.buy / create_listing / settle_pending` 真正落地时统一设计索引
+  - 届时建议同时更新 [`docs/services-interface.md`](../services-interface.md) §4 `Repository` 字段说明
+
+### [2026-04-22] 完成历史与报表功能（Phase 1.5）
+
+- **变更内容**：
+  - 扩展 [`src/services/transaction.py`](../../src/services/transaction.py)：
+    - 新增 `by_category(category_prefix)`
+    - 新增 `price_stats_by_category(category_prefix)`
+  - 修改 [`src/ui/cli.py`](../../src/ui/cli.py)：
+    - 报表菜单 2 / 3 / 5 不再是占位提示
+    - 物品成交历史支持 **按 `item_id` / 按类型分类** 两种口径
+    - 价格统计支持 **按 `item_id` / 按类型分类** 两种口径
+    - 新增交易额榜展示
+    - 完善玩家成交历史输出（时间 / 角色 / 对手 / 数量 / 金额）
+  - 更新 [`tests/services/test_transaction_service.py`](../../tests/services/test_transaction_service.py)：新增 category 聚合与空结果测试
+  - 更新 [`tests/ui/test_cli.py`](../../tests/ui/test_cli.py)：新增报表 2 / 3 / 5 的 CLI 测试（含空数据场景）
+- **原因**：
+  - `docs/功能列表.csv` 与 `docs/data-design.md` 都明确要求“物品成交历史 / 价格统计”支持按 `item_id` 与按类型/分类查询
+  - 当前 `TransactionService` 已具备 item 维度统计能力，只需小幅扩展即可让 CLI 侧完整对齐文档口径
+- **关键设计决策**：
+  - 这轮采用 `Item.category.startswith(category_prefix)` 作为“按类型/分类”查询语义，直接复用现有 category 路径体系（如 `weapon` / `weapon.sword` / `misc`）
+  - 不引入 Repository 新索引，不修改 Persistence，不触碰 Market.buy，保持 Phase 1.5 范围可控
+  - 交易驱动的报表在空数据集下统一给出友好提示，而不是把“无成交记录”当异常泄漏给最终用户
+- **测试**：
+  - 针对 `TransactionService` 与 `CLI` 的历史/报表测试通过
+  - 当前相关测试通过：**44 passed**
+- **遗留问题**：
+  - 当前“价格走势”仍是时间倒序明细展示，不是可视化趋势图
+  - 交易额榜与玩家历史目前仍基于线性扫描 / 聚合，性能优化已单列到上方“性能遗留项 TODO”
+
 <!-- 在此添加新条目 -->
