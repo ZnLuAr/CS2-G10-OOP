@@ -41,12 +41,12 @@ GETS,交易,自购拦截,买家与卖家是同一人时拒绝交易并提示,已
 GETS,交易,挂单失效拦截,目标挂单 status ≠ active 时抛 ListingNotActiveError,已规划,P0-关键,#Exception,,40,MINGJIN LI,未完成,
 GETS,交易,交易确认,购买前显示确认信息（买卖双方 / 物品 / 金额），输入 y 确认才执行,已规划,P1-重要,#UI,,41,MINGJIN LI,未完成,
 GETS,交易队列,挂单成交队列,管理员模式：批量结算待成交挂单（演示队列 FIFO 处理）,已规划,P1-重要,#Structure-Queue,使用自实现 Queue,42,MINGJIN LI,未完成,
-GETS,历史与报表,玩家成交历史,查看指定玩家的全部成交记录（作为买家 + 作为卖家），按时间倒序,已规划,P1-重要,#Read,,43,LVZHEN ZHOU,未完成,
-GETS,历史与报表,物品成交历史,查看某个物品（按 item_id 或物品类型）的全部成交记录与价格走势,已规划,P1-重要,#Analytics,,44,LVZHEN ZHOU,未完成,
-GETS,历史与报表,价格统计,对指定物品 / 类型计算最低 / 最高 / 平均成交价（递归遍历交易树或线性扫描）,已规划,P1-重要,#Analytics #Recursion,,45,LVZHEN ZHOU,未完成,
-GETS,历史与报表,排行榜：富豪榜,按当前金币降序展示前 N 名玩家,已规划,P2-一般,#Analytics,,46,LVZHEN ZHOU,未完成,
-GETS,历史与报表,排行榜：交易额榜,按累计成交金额降序展示玩家,已规划,P2-一般,#Analytics,,47,LVZHEN ZHOU,未完成,
-GETS,历史与报表,系统数据快照,展示总玩家数 / 总物品数 / 活跃挂单数 / 累计交易额,已规划,P2-一般,#Analytics,,48,LVZHEN ZHOU,未完成,
+GETS,历史与报表,玩家成交历史,查看指定玩家的全部成交记录（作为买家 + 作为卖家），按时间倒序,已完成,P1-重要,#Read,,43,LVZHEN ZHOU,已完成,TransactionService.by_player + CLI 展示
+GETS,历史与报表,物品成交历史,查看某个物品（按 item_id 或物品类型）的全部成交记录与价格走势,已完成,P1-重要,#Analytics,,44,LVZHEN ZHOU,已完成,TransactionService.by_item/by_category + CLI 双入口
+GETS,历史与报表,价格统计,对指定物品 / 类型计算最低 / 最高 / 平均成交价（递归遍历交易树或线性扫描）,已完成,P1-重要,#Analytics #Recursion,,45,LVZHEN ZHOU,已完成,TransactionService.price_stats/price_stats_by_category + CLI 双入口
+GETS,历史与报表,排行榜：富豪榜,按当前金币降序展示前 N 名玩家,已完成,P2-一般,#Analytics,,46,LVZHEN ZHOU,已完成,TransactionService.top_by_gold + CLI 展示
+GETS,历史与报表,排行榜：交易额榜,按累计成交金额降序展示玩家,已完成,P2-一般,#Analytics,,47,LVZHEN ZHOU,已完成,TransactionService.top_by_volume + CLI 展示
+GETS,历史与报表,系统数据快照,展示总玩家数 / 总物品数 / 活跃挂单数 / 累计交易额,已完成,P2-一般,#Analytics,,48,LVZHEN ZHOU,已完成,TransactionService.snapshot + CLI 展示
 GETS,持久化,手动保存,菜单内提供"立即保存"选项，触发将内存数据写入 data/*.json,已规划,P0-关键,#Persistence,,49,LVZHEN ZHOU,未完成,
 GETS,持久化,自动保存,每次成功的写操作（创建 / 更新 / 删除 / 交易）后自动落盘,已规划,P0-关键,#Persistence,可对比手动 / 自动两种策略写入决策文档,50,LVZHEN ZHOU,未完成,
 GETS,持久化,数据备份,保存前将旧文件备份为 data/backup/*.json.bak，覆写失败时可恢复,已规划,P1-重要,#Persistence,,51,LVZHEN ZHOU,未完成,

@@ -15,16 +15,19 @@ class ItemService:
         self.repo = repo
         self.persistence = persistence
 
+
     def get_by_id(self, item_id: str) -> dict:
         item = self.repo.items.get(item_id)
         if item is None:
             raise ItemNotFoundError(item_id=item_id)
         return item
 
+
     def list_all(self, category_prefix: str | None = None) -> list[dict]:
         if category_prefix is None:
             return list(self.repo.items.values())
         return self.items_in_category(category_prefix)
+
 
     def browse_catalog(self, node_key: str = "root") -> dict:
         if node_key == "root":
@@ -38,16 +41,22 @@ class ItemService:
             raise InvalidInputError(field="node_key", value=node_key)
         return found
 
+
     def items_in_category(self, category: str) -> list[dict]:
-        for it in self.repo.items.values():
-            if it.get("category", "").startswith(category):
-                return it
+        return [
+            it
+            for it in self.repo.items.values()
+            if it.get("category", "").startswith(category)
+        ]
+
 
     def create_item(self, payload: dict) -> dict:
         raise NotImplementedError("待 Item 多态层落地后实现")
 
+
     def delete_item(self, item_id: str) -> None:
         raise NotImplementedError("待 Item 多态层与引用校验完善后实现")
+
 
     def _find_catalog_node(self, node: dict, node_key: str) -> dict | None:
         if not isinstance(node, dict):

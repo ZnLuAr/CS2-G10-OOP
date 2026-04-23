@@ -296,4 +296,32 @@
   - 等到 `MarketService.buy / create_listing / settle_pending` 真正落地时统一设计索引
   - 届时建议同时更新 [`docs/services-interface.md`](../services-interface.md) §4 `Repository` 字段说明
 
+### [2026-04-22] 完成历史与报表功能（Phase 1.5）
+
+- **变更内容**：
+  - 扩展 [`src/services/transaction.py`](../../src/services/transaction.py)：
+    - 新增 `by_category(category_prefix)`
+    - 新增 `price_stats_by_category(category_prefix)`
+  - 修改 [`src/ui/cli.py`](../../src/ui/cli.py)：
+    - 报表菜单 2 / 3 / 5 不再是占位提示
+    - 物品成交历史支持 **按 `item_id` / 按类型分类** 两种口径
+    - 价格统计支持 **按 `item_id` / 按类型分类** 两种口径
+    - 新增交易额榜展示
+    - 完善玩家成交历史输出（时间 / 角色 / 对手 / 数量 / 金额）
+  - 更新 [`tests/services/test_transaction_service.py`](../../tests/services/test_transaction_service.py)：新增 category 聚合与空结果测试
+  - 更新 [`tests/ui/test_cli.py`](../../tests/ui/test_cli.py)：新增报表 2 / 3 / 5 的 CLI 测试（含空数据场景）
+- **原因**：
+  - `docs/功能列表.csv` 与 `docs/data-design.md` 都明确要求“物品成交历史 / 价格统计”支持按 `item_id` 与按类型/分类查询
+  - 当前 `TransactionService` 已具备 item 维度统计能力，只需小幅扩展即可让 CLI 侧完整对齐文档口径
+- **关键设计决策**：
+  - 这轮采用 `Item.category.startswith(category_prefix)` 作为“按类型/分类”查询语义，直接复用现有 category 路径体系（如 `weapon` / `weapon.sword` / `misc`）
+  - 不引入 Repository 新索引，不修改 Persistence，不触碰 Market.buy，保持 Phase 1.5 范围可控
+  - 交易驱动的报表在空数据集下统一给出友好提示，而不是把“无成交记录”当异常泄漏给最终用户
+- **测试**：
+  - 针对 `TransactionService` 与 `CLI` 的历史/报表测试通过
+  - 当前相关测试通过：**44 passed**
+- **遗留问题**：
+  - 当前“价格走势”仍是时间倒序明细展示，不是可视化趋势图
+  - 交易额榜与玩家历史目前仍基于线性扫描 / 聚合，性能优化已单列到上方“性能遗留项 TODO”
+
 <!-- 在此添加新条目 -->

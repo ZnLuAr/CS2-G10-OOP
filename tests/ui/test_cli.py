@@ -334,20 +334,19 @@ class TestDataDisplay:
 
     def test_system_snapshot_display(self, fresh_cli, mock_input, capsys):
         """系统数据快照"""
-        # 5=历史与报表, 6=系统快照, 回车, b=返回, 回车, 6=退出
         mock_input("5", "6", "", "b", "", "6")
         fresh_cli.run()
 
         out = capsys.readouterr().out
-        assert len(out) > 0
+        assert "系统数据快照" in out
 
     def test_top_gold_display(self, fresh_cli, mock_input, capsys):
-        """嘉豪榜"""
+        """富豪榜"""
         mock_input("5", "4", "", "b", "", "6")
         fresh_cli.run()
 
         out = capsys.readouterr().out
-        assert len(out) > 0
+        assert "嘉豪榜" in out
 
     def test_player_transactions_display(self, fresh_cli, mock_input, capsys):
         """玩家成交历史（可能为空）"""
@@ -356,7 +355,51 @@ class TestDataDisplay:
         fresh_cli.run()
 
         out = capsys.readouterr().out
-        assert len(out) > 0
+        assert "成交记录" in out
+
+    def test_item_transactions_by_item_id_empty(self, fresh_cli, mock_input, capsys):
+        """按 item_id 查看物品成交历史（无数据）"""
+        first_iid = list(fresh_cli.repo.items.keys())[0]
+        mock_input("5", "2", "1", first_iid, "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "物品成交历史" in out
+
+    def test_item_transactions_by_category_empty(self, fresh_cli, mock_input, capsys):
+        """按分类查看物品成交历史（无数据）"""
+        first_category = list(fresh_cli.repo.items.values())[0]["category"].split(".")[0]
+        mock_input("5", "2", "2", first_category, "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "分类成交历史" in out
+
+    def test_price_stats_by_item_id_empty(self, fresh_cli, mock_input, capsys):
+        """按 item_id 查看价格统计（无数据）"""
+        first_iid = list(fresh_cli.repo.items.keys())[0]
+        mock_input("5", "3", "1", first_iid, "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "暂无成交数据" in out
+
+    def test_price_stats_by_category_empty(self, fresh_cli, mock_input, capsys):
+        """按分类查看价格统计（无数据）"""
+        first_category = list(fresh_cli.repo.items.values())[0]["category"].split(".")[0]
+        mock_input("5", "3", "2", first_category, "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "暂无成交数据" in out
+
+    def test_top_volume_display_empty(self, fresh_cli, mock_input, capsys):
+        """交易额榜（无数据）"""
+        mock_input("5", "5", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "交易额榜" in out
 
 
 

@@ -15,14 +15,17 @@ __all__ = ["TransactionService"]
 
 
 class TransactionService:
+
     def __init__(self, repo: Repository, persistence: Persistence) -> None:
         self.repo = repo
         self.persistence = persistence
+
 
     def append(self, txn: Transaction) -> None:
         self.repo.transactions.append(txn)
         self.persistence.save_transactions(self.repo)
         log.info("transaction", "appended", transaction_id=txn.transaction_id)
+
 
     def by_player(self, player_id: str, role: str = "both") -> list[Transaction]:
         # TODO(perf): 目前 O(N) 全量扫描 repo.transactions
@@ -42,9 +45,19 @@ class TransactionService:
                 txns.append(txn)
         return sorted(txns, key=lambda t: t.completed_at, reverse=True)
 
+
     def by_item(self, item_id: str) -> list[Transaction]:
         txns = [t for t in self.repo.transactions if t.item_id == item_id]
         return sorted(txns, key=lambda t: t.completed_at, reverse=True)
+
+
+    def by_category(self, category_prefix: str) -> list[Transaction]:
+        txns = [
+            t for t in self.repo.transactions
+            if self.repo.items.get(t.item_id, {}).get("category", "").startswith(category_prefix)
+        ]
+        return sorted(txns, key=lambda t: t.completed_at, reverse=True)
+
 
     def price_stats(self, item_id: str) -> dict:
         txns = self.by_item(item_id)
@@ -58,8 +71,23 @@ class TransactionService:
             "count": len(prices),
         }
 
+
+    def price_stats_by_category(self, category_prefix: str) -> dict:
+        txns = self.by_category(category_prefix)
+        if not txns:
+            raise InvalidInputError(field="category_prefix", value=category_prefix, reason="no transactions")
+        prices = [t.price for t in txns]
+        return {
+            "min": min(prices),
+            "max": max(prices),
+            "avg": sum(prices) / len(prices),
+            "count": len(prices),
+        }
+
+
     def top_by_gold(self, n: int = 10) -> list[Player]:
         return sorted(self.repo.players.values(), key=lambda p: p.gold, reverse=True)[:n]
+
 
     def top_by_volume(self, n: int = 10) -> list[tuple[Player, int]]:
         # TODO(perf): 每次查询都全量聚合所有交易
@@ -79,7 +107,9 @@ class TransactionService:
         ranked.sort(key=lambda pair: pair[1], reverse=True)
         return ranked[:n]
 
+
     def snapshot(self) -> dict:
+        # 返回系统全局的统计快照，包含玩家、物品、挂单及交易额
         return {
             "players": len(self.repo.players),
             "items": len(self.repo.items),
