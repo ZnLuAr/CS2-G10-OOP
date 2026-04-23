@@ -101,7 +101,7 @@ class App:
             return
         try:
             self.persistence.save_all(self.repo)
-        except Exception as e:                   # noqa: BLE001 - 兜底
+        except Exception as e:                   # 兜底
             # 退出阶段不能再向上抛——尽力而为，打印错误
             print(f"[ERROR] 退出时保存数据失败：{type(e).__name__}: {e}",
                   file=sys.stderr)
@@ -124,7 +124,7 @@ class App:
             # 启动期被服务层抛出的可预期错误（例如数据完整性失败）
             print(f"[启动失败] {e.message}", file=sys.stderr)
             return 2
-        except Exception as e:                   # noqa: BLE001 - 进程级兜底
+        except Exception as e:                   # 进程级兜底
             print(f"[FATAL] 未预期异常：{type(e).__name__}: {e}",
                   file=sys.stderr)
             traceback.print_exc()

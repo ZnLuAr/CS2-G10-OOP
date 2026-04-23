@@ -41,8 +41,22 @@ def test_by_item_returns_transactions(service):
     assert all(t.item_id == "i_001" for t in result)
 
 
+def test_by_category_returns_transactions(service):
+    category = service.repo.items["i_001"]["category"].split(".")[0]
+    result = service.by_category(category)
+    assert result
+    assert all(service.repo.items[t.item_id]["category"].startswith(category) for t in result)
+
+
 def test_price_stats(service):
     stats = service.price_stats("i_001")
+    assert stats["count"] >= 1
+    assert stats["min"] <= stats["max"]
+
+
+def test_price_stats_by_category(service):
+    category = service.repo.items["i_001"]["category"].split(".")[0]
+    stats = service.price_stats_by_category(category)
     assert stats["count"] >= 1
     assert stats["min"] <= stats["max"]
 
@@ -50,6 +64,11 @@ def test_price_stats(service):
 def test_price_stats_empty_raises(service):
     with pytest.raises(InvalidInputError):
         service.price_stats("i_999999")
+
+
+def test_price_stats_by_category_empty_raises(service):
+    with pytest.raises(InvalidInputError):
+        service.price_stats_by_category("unknown.category")
 
 
 def test_top_by_gold(service):
