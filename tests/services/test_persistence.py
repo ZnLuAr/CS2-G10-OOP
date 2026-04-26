@@ -185,7 +185,24 @@ class TestIntegrityCheck:
         with pytest.raises(DataIntegrityError):
             fresh_persistence.load_all()
 
-
+    def test_transaction_references_unknown_listing_only_warns(self, fresh_persistence, data_dir, capsys):
+        def mutator(d):
+            d["transactions"].append({
+                "transaction_id": "t_900001",
+                "listing_id": "l_999999",
+                "buyer_id": "p_001",
+                "seller_id": "p_002",
+                "item_id": "i_001",
+                "count": 1,
+                "price": 100,
+                "total": 100,
+                "completed_at": "2026-04-22T00:00:00Z",
+            })
+        self._corrupt(os.path.join(data_dir, "transactions.json"), mutator)
+        repo = fresh_persistence.load_all()
+        assert repo is not None
+        err = capsys.readouterr().err
+        assert "txn_references_missing_listing" in err
 
 
 # ---------------------------------------------------------------------------

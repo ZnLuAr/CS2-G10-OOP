@@ -144,10 +144,10 @@ class InventoryFullError(BusinessRuleError):
 
 | 场景 | 谁抛 | 谁捕获 | 是否写日志 |
 |------|------|--------|-----------|
-| 用户输入非法 | UI / 服务层 | UI 主循环 | INFO（关键操作） |
-| 业务规则违反（背包满 / 已穿戴等） | 服务层 | UI 调用处 | INFO |
-| 找不到 ID | 服务层 | UI 调用处 | INFO |
-| 交易类错误 | `services/market.py` | UI 调用处 | WARNING |
+| 用户输入非法 | UI / 服务层 | UI 主循环 | **不写**——UI 展示 `e.message` 即可 |
+| 业务规则违反（背包满 / 已穿戴等） | 服务层 | UI 调用处 | **不写**——UI 展示 `e.message` 即可 |
+| 找不到 ID | 服务层 | UI 调用处 | **不写**——UI 展示 `e.message` 即可 |
+| 交易类错误 | `services/market.py` | UI 调用处 | WARN（可预期的业务拦截，方便复盘） |
 | 数据完整性 / 序列化失败 | `services/persistence.py` | 主循环外层 | ERROR + 堆栈 |
 | 文件 I/O 失败 | `services/persistence.py` | 主循环外层 | ERROR + 堆栈 |
 | 未预期异常（任何 `Exception`） | — | 主循环最外层 `try/except` | ERROR + 堆栈，程序继续 |
@@ -164,12 +164,12 @@ class InventoryFullError(BusinessRuleError):
 
 ### 6.1 文件位置
 
-- 操作日志：`data/operation.log`（追加写��
-- 程序不应把日志写到 stdout（保持 CLI 输出干净）
+- 操作日志：`data/operation.log`（追加写）
+- 控制台输出用于开发期观察：`DEBUG/INFO -> stdout`，`WARN/ERROR -> stderr`
 
 ### 6.2 日志格式
 
-固定格式（使用 Python `logging` 模块）：
+固定格式（通过 `src/services/logger.py` 中自定义的 `Log` 类输出，**不使用** Python 标准库 `logging` 模块）：
 
 ```
 [YYYY-MM-DD HH:MM:SS] [LEVEL] [module] message | context_key1=value1 context_key2=value2
@@ -187,14 +187,14 @@ class InventoryFullError(BusinessRuleError):
 
 | 级别 | 使用场景 |
 |------|----------|
-| `DEBUG` | 开发期辅助（仅在 `--debug` 模式下输出） |
+| `DEBUG` | 开发期辅助输出 |
 | `INFO` | 关键操作成功（创建 / 更新 / 删除 / 交易完成） |
-| `WARNING` | 业务规则拦截（金币不足、自购等可预期错误） |
+| `WARN` | 业务规则拦截（金币不足、自购等可预期错误） |
 | `ERROR` | 数据完整性 / 文件 I/O 失败 / 未预期异常 |
 
 ### 6.4 调用约定
 
-封装在 [src/services/logger.py](../src/services/logger.py)（待建）中暴露统一接口：
+封装在 [src/services/logger.py](../src/services/logger.py) 中暴露统一接口：
 
 ```python
 from src.services.logger import log

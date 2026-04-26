@@ -111,11 +111,11 @@ class Persistence:
         """
 
     # ===== 保存 =====
-    def save_players(self, players: list["Player"]) -> None: ...    # persists
-    def save_items(self, items: list["Item"]) -> None: ...          # persists
-    def save_market(self, listings: list["Listing"]) -> None: ...   # persists
-    def save_transactions(self, txns: list["Transaction"]) -> None: ...  # persists
-    def save_catalog(self, catalog: "CatalogTree") -> None: ...     # persists
+    def save_players(self, repo: "Repository") -> None: ...         # persists
+    def save_items(self, repo: "Repository") -> None: ...           # persists
+    def save_market(self, repo: "Repository") -> None: ...          # persists
+    def save_transactions(self, repo: "Repository") -> None: ...    # persists
+    def save_catalog(self, repo: "Repository") -> None: ...         # persists
     def save_all(self, repo: "Repository") -> None: ...             # persists
 
     # ===== ID 分配 =====
@@ -147,10 +147,15 @@ class Repository:
 
 ## 5. `logger.py` 日志
 
-详见 [`error-and-log-design.md §6`](./error-and-log-design.md)，此处仅列签名：
+详见 [`error-and-log-design.md §6`](./error-and-log-design.md)。当前实现：
+
+- 控制台输出：`INFO/DEBUG -> stdout`，`WARN/ERROR -> stderr`
+- 同步 append 写入 `data/operation.log`
+- 文件写入失败时静默忽略，不中断业务流程
 
 ```python
 class Log:
+    def __init__(self, log_file: str | None = "data/operation.log") -> None: ...
     def debug(self, module: str, event: str, **context) -> None: ...
     def info(self, module: str, event: str, **context) -> None: ...
     def warn(self, module: str, event: str, **context) -> None: ...
@@ -342,7 +347,7 @@ class MarketService:
 
     def query_by_price_range(self, min_price: int,
                              max_price: int) -> list[Listing]:
-        """# pure  BST 范围查询，核心数据结构演示点（功能 ID 32）"""
+        """# pure  目标实现为 BST 范围查询，核心数据结构演示点（功能 ID 32）；当前骨架可先线性扫描"""
 
     def query_by_category(self, category_prefix: str) -> list[Listing]: ...  # pure
     def query_by_seller(self, seller_id: str) -> list[Listing]: ...          # pure
@@ -389,11 +394,20 @@ class TransactionService:
 
     def by_item(self, item_id: str) -> list[Transaction]: ...  # pure
 
+    def by_category(self, category_prefix: str) -> list[Transaction]:
+        """# pure  返回分类前缀匹配的所有交易记录，按 completed_at 倒序"""
+
     # ===== 统计 =====
     def price_stats(self, item_id: str) -> dict:
         """# pure
         Returns: {"min": int, "max": int, "avg": float, "count": int}
         Raises: InvalidInputError 若无成交记录
+        """
+
+    def price_stats_by_category(self, category_prefix: str) -> dict:
+        """# pure  对某分类前缀下的所有交易记录计算价格统计
+        Returns: {"min": int, "max": int, "avg": float, "count": int}
+        Raises: InvalidInputError 若该分类下无成交记录
         """
 
     # ===== 排行榜 =====
