@@ -349,4 +349,64 @@
 - **遗留问题**：
   - 当前只完成了日志落盘，不包含 CLI 菜单上的“手动保存 / 数据重置”入口（留到下一轮）
 
+### [2026-04-22] 测试补强与仓库审计（不新增业务功能）
+
+- **变更内容**：
+  - 补强 [`tests/ui/test_cli.py`](../../tests/ui/test_cli.py)：
+    - 历史报表大输出列表只显示前 20 条的回归测试
+    - 交易额榜非空场景测试
+    - 分类价格统计非空场景测试
+    - 将部分 `len(out) > 0` 弱断言替换为关键字段断言
+  - 补强 [`tests/services/test_logger.py`](../../tests/services/test_logger.py)：
+    - `warn/error -> stderr`
+    - `debug/info -> stdout`
+    - `context` key 排序稳定
+  - 更新 [`docs/dev-materials-for-report/testing-notes.md`](./testing-notes.md)：补“CLI 与 logger 测试补强经验”
+- **原因**：
+  - 这一轮不再继续开新功能，而是优先把已落地功能的回归保护补扎实
+  - 早期 CLI 测试存在较多 `len(out) > 0` 式弱断言，对真实输出语义保护不足
+- **仓库审计结论**：
+  - **真功能缺口（但暂不动）**：`MarketService.create_listing/buy/settle_pending`、`Inventory` 真实实现、`Item` 多态创建/删除、`cancel_listing()` 完整退回背包
+  - **文档—实现偏差**：当前“价格走势”仍以时间倒序明细展示，不是可视化趋势图；部分接口仍属于 Phase 1 / 1.5 过渡形态
+  - **测试缺口**：端到端测试仍缺；更多 CLI 富文本输出仍可继续加强断言
+  - **可接受留白**：不触碰其他组员主责模块，保留阶段性占位实现与 TODO 注释
+- **测试**：
+  - `tests/ui/test_cli.py` + `tests/services/test_logger.py` 相关测试通过：**43 passed**
+- **遗留问题**：
+  - 手动保存 / 数据重置 CLI 入口尚未开始（按当前决定后置）
+  - 下一轮若继续补强，优先考虑把系统端到端测试（功能 ID 61）做起来
+
+### [2026-04-22] 修正文档中的枚举漂移
+
+- **变更内容**：
+  - 修改 [`docs/data-design.md`](../data-design.md)
+  - 将示例 JSON 中错误的 `rarity = "legend"` 统一修正为 `rarity = "legendary"`
+  - 将待讨论项里与当前代码/数据不一致的职业 `rogue` 修正为 `summon`
+- **原因**：
+  - 仓库实际数据（`data/items.json`）、seed 脚本（`src/services/seed.py`）和字段约定都使用 `legendary`
+  - 玩家职业的代码常量与种子数据当前实际采用的是 `summon`，继续在文档里写 `rogue` 会误导后续开发者
+- **遗留问题**：
+  - 仍需继续做一轮更系统的“规范文档一致性检查”，尤其是功能列表、接口文档和实现之间的阶段性偏差
+
+### [2026-04-26] 复查并修正参考文档中的设计偏差
+
+- **变更内容**：
+  - 系统复查 [`docs/services-interface.md`](../services-interface.md)、[`docs/error-and-log-design.md`](../error-and-log-design.md)、[`docs/data-design.md`](../data-design.md) 与 [`docs/功能列表.csv`](../功能列表.csv)
+  - 修正 `Persistence.save_*` 接口签名与当前实现不一致的问题
+  - 补齐 `TransactionService.by_category()` / `price_stats_by_category()` 等已实现但接口文档未记录的方法
+  - 修正日志规范中过期的描述：logger 已实现，不再是“待建”；日志级别实际使用 `WARN`，并明确 `DEBUG/INFO -> stdout`、`WARN/ERROR -> stderr`
+  - 修正数据设计中的示例问题：武器示例不应出现 `stack_size_max`，并澄清种子数据中的 `stats.count` 与运行时 `InventorySlot.count` 不是同一个概念
+  - 重新审视功能列表完成状态，避免把“有基础入口”误标为“完整完成”
+- **原因**：
+  - 项目前期经验不足，文档更多是“预想中的设计蓝图”，没有充分考虑后续实现过程中的阶段性落差
+  - 随着代码逐步落地，接口签名、日志行为、功能完成度和数据字段语义都出现了细微偏差；如果不集中修正，后续成员会被过期文档误导
+- **复查后的处理原则**：
+  - 已经完整实现并有 CLI / 测试支撑的功能，才标为“已完成”
+  - 只有基础入口但核心数据结构或多态目标未完成的功能，仍保留“未完成”，并在备注中写明当前阶段状态
+  - 文档不再只写理想目标，而是同时标明“当前实现”和“最终目标”的差异
+- **测试**：
+  - 文档修正后运行全量测试：**159 passed**
+- **反思**：
+  - 文档不是一次性产物，而是需要随着实现持续校准的契约；越是多人协作项目，越不能让过期文档长期存在
+
 <!-- 在此添加新条目 -->

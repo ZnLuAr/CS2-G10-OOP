@@ -371,7 +371,7 @@ Item (abstract)
 | `power` | `int` | 效果数值（恢复量 / 增益值） |
 | `duration` | `int` | 持续时间（秒；瞬时填 0） |
 | `stack_size_max` | `int` | 单格最大堆叠 |
-| `count` | `int` | 当前数量 |
+| `count` | `int` | 种子数据初始化时写入的默认持有数量（**仅用于生成种子**）；运行时实际数量保存在 `InventorySlot.count`，两者不是同一个值 |
 
 ##### 子类专属字段
 
@@ -387,7 +387,7 @@ Item (abstract)
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `stack_size_max` | `int` | 单格最大堆叠 |
-| `count` | `int` | 当前数量 |
+| `count` | `int` | 种子数据初始化时写入的默认持有数量（**仅用于生成种子**）；运行时实际数量保存在 `InventorySlot.count` |
 
 > 杂项物品无功能性属性，仅用于剧情 / 收藏 / 交易。说明文字使用顶层 `description` 字段（详见 §8.3.1）。
 
@@ -400,7 +400,7 @@ Item (abstract)
       "item_id": "i_001",
       "name": "物理学圣剑",
       "category": "weapon.sword",
-      "rarity": "legend",
+      "rarity": "legendary",
       "base_value": 1200,
       "stats": {
         "attack": 85,
@@ -422,7 +422,6 @@ Item (abstract)
         "attack": 514,
         "durability": 1,
         "durability_max": 1,
-        "stack_size_max": 1,
         "slot": "weapon"
       }
     },
@@ -472,7 +471,7 @@ Item (abstract)
       "item_id": "i_051",
       "name": "唢呐",
       "category": "misc",
-      "rarity": "legend",
+      "rarity": "legendary",
       "base_value": 10,
       "description": "把尼曼愉悦送走",
       "stats": {
@@ -560,7 +559,7 @@ Item (abstract)
 
 - [ ] 穿戴位是否区分主手 / 副手 / 双手武器？（影响 `slot` 取值与穿戴互斥规则）
 - [ ] 是否引入"附魔 / 词条"系统（可变长属性 list，附加于已有装备 / 武器之上）？
-- [ ] 玩家职业取值集合（暂列 `warrior` / `archer` / `mage` / `rogue` / `none`，需最终敲定）
+- [ ] 玩家职业取值集合（暂列 `warrior` / `archer` / `mage` / `summon` / `none`，需最终敲定）
 - [ ] `level` 是否需要经验值字段（`exp`）支撑升级，还是仅作为门槛字段手动调整？
 
 > 讨论结果请同步到 `docs/dev-materials-for-report/design-decisions.md`，并回填到本文档。
