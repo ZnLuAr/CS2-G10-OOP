@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from src.errors import InvalidInputError, ItemNotFoundError     # ..errors.validation
-from persistence import Persistence, Repository
+from src.services.persistence import Persistence, Repository
 from src.models import Player     # ..models.player
-from src.item import (
+from src.models import (
         Sword, Bow, Spear, Hammer, Halberd,
         Axe, Pickaxe, Shovel, Hoe,
         Helmet, Chestplate, Greaves, Boots, Shield,
@@ -15,66 +15,96 @@ from src.item import (
 __all__ = ["ItemService"]
 
 
+def _ensure_item(obj) -> Item:
+    if isinstance(obj, Item):
+        return obj
+    if isinstance(obj, dict):
+        return Item.from_dict(obj)
+    raise TypeError("Unknown item representation")
+
+
+# 【类别 → 类】映射字典
+category_to_class = {
+    "weapon.sword": Sword,
+    "weapon.bow": Bow,
+    "weapon.spear": Spear,
+    "weapon.hammer": Hammer,
+    "weapon.halberd": Halberd,
+
+    "tool.axe": Axe,
+    "tool.pickaxe": Pickaxe,
+    "tool.shovel": Shovel,
+    "tool.hoe": Hoe,
+
+    "armor.helmet": Helmet,
+    "armor.chestplate": Chestplate,
+    "armor.greaves": Greaves,
+    "armor.boots": Boots,
+    "armor.shield": Shield,
+
+    "consumable.potion": Potion,
+    "consumable.food": Food,
+    "consumable.magic": Magic,
+    "consumable.material": Material,
+
+    "misc": Misc,
+}
+
+
 class ItemService:
-    def __init__(self, repo: Repository, persistence: Persistence, player: Player, item: Item) -> None:
+    def __init__(self, repo: Repository, persistence: Persistence, player: Player) -> None:
         self.repo = repo
         self.persistence = persistence
         self.player = player
-        self.item = item
 
-    def get_by_id(self, item_id: str) -> dict:
+    def list_by_id(self, item_id: str) -> Item:
         item = self.repo.items.get(item_id)
         if item is None:
             raise ItemNotFoundError(item_id=item_id)
-        return item
+        return _ensure_item(item)
 
-    def list_all(self, category_prefix: str | None = None) -> list[dict]:
+    def list_all(self, category_prefix: str | None = None) -> list[Item]:
         if category_prefix is None:
-            return list(self.repo.items.values())
-        return self.items_in_category(category_prefix)
+            return [_ensure_item(it) for it in self.repo.items.values()]
+        return self.list_by_category(category_prefix)
 
-    def browse_catalog(self, node_key: str = "root") -> dict:
+    def list_catalog(self, node_key: str = "root") -> dict:
         if node_key == "root":
             root = self.repo.catalog.get("root")
             if root is None:
                 raise InvalidInputError(field="node_key", value=node_key)
             return root
 
-        found = self._find_catalog_node(self.repo.catalog.get("root", {}), node_key)
+        found = self.find_catalog_node(self.repo.catalog.get("root", {}), node_key)
         if found is None:
             raise InvalidInputError(field="node_key", value=node_key)
         return found
 
-    def items_in_category(self, category: str) -> list[dict]:
-        return [
-            it
-            for it in self.repo.items.values()
-            if it.get("category", "").startswith(category)
-        ]
+    def list_by_category(self, category: str) -> list[Item]:
+        result = []
+        for it in self.repo.items.values():     # item:dict["item_id":{...}]
+            if isinstance(it, dict):
+                cat = it.get("category")
+            else:
+                raise ItemNotFoundError(item_id=category)
+            if cat.startswith(category):     # prefix match
+                result.append(_ensure_item(it))
+        return result
 
-    def create_item(self, payload: dict) -> Item:
-        return self.item.from_dict(payload)
+    @staticmethod
+    def create_item(payload: dict) -> Item:
+        try:
+            return Item.from_dict(payload)
+        except Exception:
+            raise InvalidInputError(field="payload", value=payload)
 
-    def delete_item(self, item_id: str) -> None:
-        to_remove_idx = None
-        for idx, item_data in enumerate(self.player.inventory):
-            if item_data["item_id"] == item_id:
-                to_remove_idx = idx
-                break
-
-        if to_remove_idx is None:
-            raise ItemNotFoundError(item_id=item_id)
-        if Player.can_be_deleted(self.player) is None:
-            raise ValueError("item still exist")
-        del self.player.inventory[to_remove_idx]
-
-    def _find_catalog_node(self, node: dict, node_key: str) -> dict | None:
+    def find_catalog_node(self, node: dict, node_key: str) -> dict | None:
         if not isinstance(node, dict):
             return None
         if node.get("key") == node_key:
             return node
         for child in node.get("children", []):
-            found = self._find_catalog_node(child, node_key)
+            found = self.find_catalog_node(child, node_key)
             if found is not None:
                 return found
         return None

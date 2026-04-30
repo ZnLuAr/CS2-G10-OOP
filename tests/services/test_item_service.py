@@ -17,7 +17,7 @@ def service(tmp_path):
 
 def test_get_by_id(service):
     iid = next(iter(service.repo.items))
-    assert service.get_by_id(iid)["item_id"] == iid
+    assert service.get_by_id(iid).item_id == iid
 
 
 def test_get_by_id_missing_raises(service):
@@ -32,7 +32,7 @@ def test_list_all(service):
 
 def test_list_all_by_category_prefix(service):
     items = service.list_all("weapon")
-    assert all(item.get("category", "").startswith("weapon") for item in items)
+    assert all(item.category.startswith("weapon") for item in items)
 
 
 def test_browse_catalog_root(service):
@@ -47,7 +47,7 @@ def test_browse_catalog_missing_raises(service):
 
 def test_items_in_category(service):
     items = service.items_in_category("weapon")
-    assert all(item.get("category", "").startswith("weapon") for item in items)
+    assert all(item.category.startswith("weapon") for item in items)
 
 
 def test_create_item_not_implemented(service):

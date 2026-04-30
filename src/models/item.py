@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any
-
+from src.errors import InventoryFullError
 
 # ====================== Mixin 组合 ======================
-class Durable(ABC):
+class Durable:
     """耐久Mixin：武器/工具/装备"""
     durability: int
     durability_max: int
@@ -15,7 +15,7 @@ class Durable(ABC):
         self.durability = self.durability_max
 
 
-class Equippable(ABC):
+class Equippable:
     """穿戴Mixin：武器/装备"""
     equipped: bool
     slot: str
@@ -27,7 +27,7 @@ class Equippable(ABC):
         self.equipped = False
 
 
-class Stackable(ABC):
+class Stackable:
     """堆叠Mixin：消耗品/杂项"""
     count: int
     stack_size_max: int
@@ -39,7 +39,7 @@ class Stackable(ABC):
         if self.can_stack(num):
             self.count += num
             return True
-        return False
+        raise InventoryFullError("InventoryFullError", field="num", value=num)
 
     def remove_stack(self, num: int) -> bool:
         if self.count >= num:
@@ -52,6 +52,7 @@ class Stackable(ABC):
 class Item(ABC):
     def __init__(
         self,
+        *,
         item_id: str,
         name: str,
         category: str,
@@ -67,7 +68,7 @@ class Item(ABC):
         self.description = description
 
     @abstractmethod
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """返回该物品的stats字典（子类必须实现）"""
         pass
 
@@ -76,28 +77,32 @@ class Item(ABC):
         """多态描述"""
         pass
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """序列化为可存JSON的字典"""
-        return {
+        result ={
             "item_id": self.item_id,
             "name": self.name,
             "category": self.category,
             "rarity": self.rarity,
             "base_value": self.base_value,
-            "description": self.description,
             "stats": self.get_stats()
         }
+        if self.description is not None:
+            result["description"] = self.description
+
+        return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Item":
+    def from_dict(cls, data: dict[str, Any]) -> "Item":
         """从字典反序列化为对应子类Item（工厂方法）"""
         return ItemFactory.create_item(data)
 
 
 # ====================== 武器大类 ======================
-class Weapon(Item, Durable, Equippable, ABC):
+class Weapon(Item, Durable, Equippable):
     def __init__(
         self,
+        *,
         item_id: str,
         name: str,
         sub_category: str,
@@ -123,7 +128,7 @@ class Weapon(Item, Durable, Equippable, ABC):
         self.equipped = False
         self.slot = "weapon"
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "attack": self.attack,
             "attack_speed": self.attack_speed,
@@ -133,36 +138,82 @@ class Weapon(Item, Durable, Equippable, ABC):
             "slot": self.slot
         }
 
-
     def describe(self) -> str:
         return f"【{self.rarity}】{self.name} | 攻击:{self.attack} 攻速:{self.attack_speed} 耐久:{self.durability}/{self.durability_max}"
 
 
 class Sword(Weapon):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, attack: int, attack_speed: float, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "sword", rarity, base_value, attack, attack_speed, durability_max, description)
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="sword",
+            rarity=rarity,
+            base_value=base_value,
+            attack=attack,
+            attack_speed=attack_speed,
+            durability_max=durability_max,
+            description=description
+        )
 
 class Bow(Weapon):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, attack: int, attack_speed: float, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "bow", rarity, base_value, attack, attack_speed, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="bow",
+            rarity=rarity,
+            base_value=base_value,
+            attack=attack,
+            attack_speed=attack_speed,
+            durability_max=durability_max,
+            description=description
+        )
 class Spear(Weapon):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, attack: int, attack_speed: float, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "spear", rarity, base_value, attack, attack_speed, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="spear",
+            rarity=rarity,
+            base_value=base_value,
+            attack=attack,
+            attack_speed=attack_speed,
+            durability_max=durability_max,
+            description=description
+        )
 class Hammer(Weapon):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, attack: int, attack_speed: float, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "hammer", rarity, base_value, attack, attack_speed, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="hammer",
+            rarity=rarity,
+            base_value=base_value,
+            attack=attack,
+            attack_speed=attack_speed,
+            durability_max=durability_max,
+            description=description
+        )
 class Halberd(Weapon):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, attack: int, attack_speed: float, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "halberd", rarity, base_value, attack, attack_speed, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="halberd",
+            rarity=rarity,
+            base_value=base_value,
+            attack=attack,
+            attack_speed=attack_speed,
+            durability_max=durability_max,
+            description=description
+        )
 
 # ====================== 工具大类 ======================
-class Tool(Item, Durable, ABC):
+class Tool(Item, Durable):
     def __init__(
         self,
+        *,
         item_id: str,
         name: str,
         sub_category: str,
@@ -186,7 +237,7 @@ class Tool(Item, Durable, ABC):
         self.durability_max = durability_max
         self.durability = durability_max
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "efficiency": self.efficiency,
             "tier": self.tier,
@@ -200,25 +251,62 @@ class Tool(Item, Durable, ABC):
 
 class Axe(Tool):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, efficiency: float, tier: int, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "axe", rarity, base_value, efficiency, tier, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="axe",
+            rarity=rarity,
+            base_value=base_value,
+            efficiency=efficiency,
+            tier=tier,
+            durability_max=durability_max,
+            description=description
+        )
 class Pickaxe(Tool):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, efficiency: float, tier: int, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "pickaxe", rarity, base_value, efficiency, tier, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="pickaxe",
+            rarity=rarity,
+            base_value=base_value,
+            efficiency=efficiency,
+            tier=tier,
+            durability_max=durability_max,
+            description=description
+        )
 class Shovel(Tool):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, efficiency: float, tier: int, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "shovel", rarity, base_value, efficiency, tier, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="shovel",
+            rarity=rarity,
+            base_value=base_value,
+            efficiency=efficiency,
+            tier=tier,
+            durability_max=durability_max,
+            description=description
+        )
 class Hoe(Tool):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, efficiency: float, tier: int, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "hoe", rarity, base_value, efficiency, tier, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="hoe",
+            rarity=rarity,
+            base_value=base_value,
+            efficiency=efficiency,
+            tier=tier,
+            durability_max=durability_max,
+            description=description
+        )
 
 # ====================== 装备大类 ======================
-class Armor(Item, Durable, Equippable, ABC):
+class Armor(Item, Durable, Equippable):
     def __init__(
         self,
+        *,
         item_id: str,
         name: str,
         sub_category: str,
@@ -244,7 +332,7 @@ class Armor(Item, Durable, Equippable, ABC):
         self.equipped = False
         self.slot = sub_category
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "defense": self.defense,
             "magic_resist": self.magic_resist,
@@ -260,29 +348,75 @@ class Armor(Item, Durable, Equippable, ABC):
 
 class Helmet(Armor):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, defense: int, magic_resist: int, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "helmet", rarity, base_value, defense, magic_resist, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="helmet",
+            rarity=rarity,
+            base_value=base_value,
+            defense=defense,
+            magic_resist=magic_resist,
+            durability_max=durability_max,
+            description=description
+        )
 class Chestplate(Armor):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, defense: int, magic_resist: int, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "chestplate", rarity, base_value, defense, magic_resist, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="chestplate",
+            rarity=rarity,
+            base_value=base_value,
+            defense=defense,
+            magic_resist=magic_resist,
+            durability_max=durability_max,
+            description=description
+        )
 class Greaves(Armor):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, defense: int, magic_resist: int, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "greaves", rarity, base_value, defense, magic_resist, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="greaves",
+            rarity=rarity,
+            base_value=base_value,
+            defense=defense,
+            magic_resist=magic_resist,
+            durability_max=durability_max,
+            description=description
+        )
 class Boots(Armor):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, defense: int, magic_resist: int, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "boots", rarity, base_value, defense, magic_resist, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="boots",
+            rarity=rarity,
+            base_value=base_value,
+            defense=defense,
+            magic_resist=magic_resist,
+            durability_max=durability_max,
+            description=description
+        )
 class Shield(Armor):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, defense: int, magic_resist: int, durability_max: int, description: str = ""):
-        super().__init__(item_id, name, "shield", rarity, base_value, defense, magic_resist, durability_max, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="shield",
+            rarity=rarity,
+            base_value=base_value,
+            defense=defense,
+            magic_resist=magic_resist,
+            durability_max=durability_max,
+            description=description
+        )
 
 # ====================== 消耗品大类 ======================
-class Consumable(Item, Stackable, ABC):
+class Consumable(Item, Stackable):
     def __init__(
         self,
+        *,
         item_id: str,
         name: str,
         sub_category: str,
@@ -309,7 +443,7 @@ class Consumable(Item, Stackable, ABC):
         self.stack_size_max = stack_size_max
         self.count = count
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "effect": self.effect,
             "power": self.power,
@@ -324,37 +458,85 @@ class Consumable(Item, Stackable, ABC):
 
 class Potion(Consumable):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, effect: str, power: int, stack_size_max: int, count: int = 1, description: str = ""):
-        super().__init__(item_id, name, "potion", rarity, base_value, effect, power, 0, stack_size_max, count, description)
-
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="potion",
+            rarity=rarity,
+            base_value=base_value,
+            effect=effect,
+            power=power,
+            duration=0,
+            stack_size_max=stack_size_max,
+            count=count,
+            description=description
+        )
 class Food(Consumable):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, effect: str, power: int, duration: int, stack_size_max: int, count: int = 1, nutrition: int = 0, description: str = ""):
-        super().__init__(item_id, name, "food", rarity, base_value, effect, power, duration, stack_size_max, count, description)
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="food",
+            rarity=rarity,
+            base_value=base_value,
+            effect=effect,
+            power=power,
+            duration=duration,
+            stack_size_max=stack_size_max,
+            count=count,
+            description=description
+        )
         self.nutrition = nutrition
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         stats = super().get_stats()
         stats["nutrition"] = self.nutrition
         return stats
 
 class Magic(Consumable):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, effect: str, power: int, duration: int, stack_size_max: int, count: int = 1, mana_cost: int = 0, description: str = ""):
-        super().__init__(item_id, name, "magic", rarity, base_value, effect, power, duration, stack_size_max, count, description)
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="magic",
+            rarity=rarity,
+            base_value=base_value,
+            effect=effect,
+            power=power,
+            duration=duration,
+            stack_size_max=stack_size_max,
+            count=count,
+            description=description
+        )
         self.mana_cost = mana_cost
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         stats = super().get_stats()
         stats["mana_cost"] = self.mana_cost
         return stats
 
 class Material(Consumable):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, stack_size_max: int, count: int = 1, description: str = ""):
-        super().__init__(item_id, name, "material", rarity, base_value, "none", 0, 0, stack_size_max, count, description)
+        super().__init__(
+            item_id=item_id,
+            name=name,
+            sub_category="material",
+            rarity=rarity,
+            base_value=base_value,
+            effect="none",
+            power=0,
+            duration=0,
+            stack_size_max=stack_size_max,
+            count=count,
+            description=description
+        )
 
 
 # ====================== 杂项大类 ======================
 class Misc(Item, Stackable):
     def __init__(
         self,
+        *,
         item_id: str,
         name: str,
         rarity: str,
@@ -374,7 +556,7 @@ class Misc(Item, Stackable):
         self.stack_size_max = stack_size_max
         self.count = count
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "stack_size_max": self.stack_size_max,
             "count": self.count
@@ -382,7 +564,6 @@ class Misc(Item, Stackable):
 
     def describe(self) -> str:
         return f"【{self.rarity}】{self.name} | 数量:{self.count}/{self.stack_size_max} | {self.description}"
-
 
 
 class ItemFactory:
@@ -400,74 +581,125 @@ class ItemFactory:
 
         if cat.startswith("weapon."):
             sub = cat.split(".")[1]
-            args = [
-                base["item_id"], base["name"], base["rarity"], base["base_value"],
-                stats["attack"], stats["attack_speed"], stats["durability_max"],
-                base["description"]
-            ]
-            if sub == "sword": return Sword(*args)
-            if sub == "bow": return Bow(*args)
-            if sub == "spear": return Spear(*args)
-            if sub == "hammer": return Hammer(*args)
-            if sub == "halberd": return Halberd(*args)
+            args = {
+                "item_id": base["item_id"],
+                "name": base["name"],
+                "rarity": base["rarity"],
+                "base_value": base["base_value"],
+                "attack": stats["attack"],
+                "attack_speed": stats["attack_speed"],
+                "durability_max": stats["durability_max"],
+                "description": base["description"]
+            }
+            if sub == "sword": return Sword(**args)
+            if sub == "bow": return Bow(**args)
+            if sub == "spear": return Spear(**args)
+            if sub == "hammer": return Hammer(**args)
+            if sub == "halberd": return Halberd(**args)
 
-        elif cat.startswith("tool."):
+        if cat.startswith("tool."):
             sub = cat.split(".")[1]
-            args = [
-                base["item_id"], base["name"], base["rarity"], base["base_value"],
-                stats["efficiency"], stats["tier"], stats["durability_max"],
-                base["description"]
-            ]
-            if sub == "axe": return Axe(*args)
-            if sub == "pickaxe": return Pickaxe(*args)
-            if sub == "shovel": return Shovel(*args)
-            if sub == "hoe": return Hoe(*args)
+            args = {
+                "item_id": base["item_id"],
+                "name": base["name"],
+                "rarity": base["rarity"],
+                "base_value": base["base_value"],
+                "efficiency": stats["efficiency"],
+                "tier": stats["tier"],
+                "durability_max": stats["durability_max"],
+                "description": base["description"]
+            }
+            if sub == "axe": return Axe(**args)
+            if sub == "pickaxe": return Pickaxe(**args)
+            if sub == "shovel": return Shovel(**args)
+            if sub == "hoe": return Hoe(**args)
 
-        elif cat.startswith("armor."):
+        if cat.startswith("armor."):
             sub = cat.split(".")[1]
-            args = [
-                base["item_id"], base["name"], base["rarity"], base["base_value"],
-                stats["defense"], stats["magic_resist"], stats["durability_max"],
-                base["description"]
-            ]
-            if sub == "helmet": return Helmet(*args)
-            if sub == "chestplate": return Chestplate(*args)
-            if sub == "greaves": return Greaves(*args)
-            if sub == "boots": return Boots(*args)
-            if sub == "shield": return Shield(*args)
+            args = {
+                "item_id": base["item_id"],
+                "name": base["name"],
+                "rarity": base["rarity"],
+                "base_value": base["base_value"],
+                "defense": stats["defense"],
+                "magic_resist": stats["magic_resist"],
+                "durability_max": stats["durability_max"],
+                "description": base["description"]
+            }
+            if sub == "helmet": return Helmet(**args)
+            if sub == "chestplate": return Chestplate(**args)
+            if sub == "greaves": return Greaves(**args)
+            if sub == "boots": return Boots(**args)
+            if sub == "shield": return Shield(**args)
 
-        elif cat.startswith("consumable."):
-            sub = cat.split(".")[1]
-            if sub == "potion":
-                return Potion(
-                    base["item_id"], base["name"], base["rarity"], base["base_value"],
-                    stats["effect"], stats["power"], stats["stack_size_max"], stats["count"],
-                    base["description"]
-                )
-            if sub == "food":
-                return Food(
-                    base["item_id"], base["name"], base["rarity"], base["base_value"],
-                    stats["effect"], stats["power"], stats["duration"],
-                    stats["stack_size_max"], stats["count"], stats.get("nutrition", 0),
-                    base["description"]
-                )
-            if sub == "magic":
-                return Magic(
-                    base["item_id"], base["name"], base["rarity"], base["base_value"],
-                    stats["effect"], stats["power"], stats["duration"],
-                    stats["stack_size_max"], stats["count"], stats.get("mana_cost", 0),
-                    base["description"]
-                )
-            if sub == "material":
-                return Material(
-                    base["item_id"], base["name"], base["rarity"], base["base_value"],
-                    stats["stack_size_max"], stats["count"], base["description"]
-                )
+        if cat.startswith("consumable.potion"):
+            args = {
+                "item_id": base["item_id"],
+                "name": base["name"],
+                "rarity": base["rarity"],
+                "base_value": base["base_value"],
+                "effect": stats["effect"],
+                "power": stats["power"],
+                "stack_size_max": stats["stack_size_max"],
+                "count": stats["count"],
+                "description": base["description"]
+            }
+            return Potion(**args)
 
-        elif cat == "misc":
-            return Misc(
-                base["item_id"], base["name"], base["rarity"], base["base_value"],
-                stats["stack_size_max"], stats["count"], base["description"]
-            )
+        if cat.startswith("consumable.food"):
+            args = {
+                "item_id": base["item_id"],
+                "name": base["name"],
+                "rarity": base["rarity"],
+                "base_value": base["base_value"],
+                "effect": stats["effect"],
+                "power": stats["power"],
+                "duration": stats["duration"],
+                "stack_size_max": stats["stack_size_max"],
+                "count": stats["count"],
+                "nutrition": stats.get("nutrition", 0),
+                "description": base["description"]
+            }
+            return Food(**args)
+
+        if cat.startswith("consumable.magic"):
+            args = {
+                "item_id": base["item_id"],
+                "name": base["name"],
+                "rarity": base["rarity"],
+                "base_value": base["base_value"],
+                "effect": stats["effect"],
+                "power": stats["power"],
+                "duration": stats["duration"],
+                "stack_size_max": stats["stack_size_max"],
+                "count": stats["count"],
+                "mana_cost": stats.get("mana_cost", 0),
+                "description": base["description"]
+            }
+            return Magic(**args)
+
+        if cat.startswith("consumable.material"):
+            args = {
+                "item_id": base["item_id"],
+                "name": base["name"],
+                "rarity": base["rarity"],
+                "base_value": base["base_value"],
+                "stack_size_max": stats["stack_size_max"],
+                "count": stats["count"],
+                "description": base["description"]
+            }
+            return Material(**args)
+
+        if cat == "misc":
+            args = {
+                "item_id": base["item_id"],
+                "name": base["name"],
+                "rarity": base["rarity"],
+                "base_value": base["base_value"],
+                "stack_size_max": stats["stack_size_max"],
+                "count": stats["count"],
+                "description": base["description"]
+            }
+            return Misc(**args)
 
         raise ValueError(f"Unknown category: {cat}")

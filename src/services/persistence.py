@@ -30,6 +30,7 @@ from src.errors import (
 )
 from src.models import Listing, Player, Transaction
 from src.services import seed as _seed
+from src.services.logger import log
 
 __all__ = ["Persistence", "Repository"]
 
@@ -395,6 +396,9 @@ class Persistence:
                     ref_id=txn.item_id,
                 )
             if txn.listing_id not in listing_ids:
-                # 软警告：暂以 print 替代日志，等 logger 落地后改为 log.warn
-                print(f"[WARN] transaction {tid} references "
-                      f"unknown listing {txn.listing_id!r}")
+                log.warn(
+                    "persistence",
+                    "txn_references_missing_listing",
+                    transaction_id=tid,
+                    listing_id=txn.listing_id,
+                )
