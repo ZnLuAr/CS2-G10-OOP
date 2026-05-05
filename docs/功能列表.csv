@@ -22,11 +22,11 @@ GETS,物品管理,按 ID 查询物品,使用哈希表 O(1) 查找,已完成,P0-�
 GETS,物品管理,按分类浏览,从分类树根节点递归向下浏览，进入叶子节点后列出该类物品,已规划,P0-关键,#Structure-Tree #Recursion,ItemService.browse_catalog 已可递归查节点；CLI 分类浏览入口仍提示待 CatalogTree 实现,21,JIAFENG YE,未完成,服务层部分完成，UI 完整浏览流程未完成
 GETS,物品管理,新增物品（管理员）,管理员模式：填写物品类型 / 名称 / 稀有度 / 基础价值 / 子类属性，写入 items.json,已规划,P1-重要,#CRUD,根据 category 实例化对应 Item 子类,22,JIAFENG YE,未完成,
 GETS,物品管理,删除物品（管理员）,删除前校验：无玩家持有、无活跃挂单；否则拒绝,已规划,P2-一般,#Delete,,23,JIAFENG YE,未完成,
-GETS,背包,查看背包,展示当前选定玩家的背包，按物品在背包中的顺序显示（双向链表的天然次序）,已规划,P0-关键,#Structure-DoublyLinkedList,CLI 已可展示 Player.inventory；双向链表结构演示待 Inventory 完成,24,XINGZHOU PENG,未完成,展示入口可用，但核心数据结构未完成
+GETS,背包,查看背包,展示当前选定玩家的背包，按物品在背包中的顺序显示（双向链表的天然次序）,已完成,P0-关键,#Structure-DoublyLinkedList,Inventory 服务已实现双向链表存储；CLI 查看入口已接入,24,XINGZHOU PENG,已完成,src/services/inventory.py + CLI 查看背包
 GETS,背包,按稀有度排序背包,对背包进行排序展示，但不改变内部存储顺序,已规划,P1-重要,#Sort,排序算法可写入复杂度分析,25,XINGZHOU PENG,未完成,
-GETS,背包,从背包移除物品,从背包移除指定物品（用于成交 / 丢弃 / 上架）,已规划,P0-关键,#Structure-DoublyLinkedList,O(1) 删除（已知节点）,26,XINGZHOU PENG,未完成,
-GETS,背包,向背包添加物品,向背包末尾添加物品（用于初始化 / 购买入库）,已规划,P0-关键,#Structure-DoublyLinkedList,,27,XINGZHOU PENG,未完成,
-GETS,背包,背包容量限制,每个玩家背包上限 N（如 50 件），超限拒绝添加并提示,已规划,P1-重要,#Validation,可在 design-decisions 讨论 N 取值,28,XINGZHOU PENG,未完成,
+GETS,背包,从背包移除物品,从背包移除指定物品（用于成交 / 丢弃 / 上架）,已完成,P0-关键,#Structure-DoublyLinkedList,Inventory.remove() 实现；支持原子性检查；CLI 移除入口已接入,26,XINGZHOU PENG,已完成,src/services/inventory.py::remove + CLI 移除物品
+GETS,背包,向背包添加物品,向背包末尾添加物品（用于初始化 / 购买入库）,已完成,P0-关键,#Structure-DoublyLinkedList,Inventory.add() 实现双向链表尾部添加；支持堆叠合并；CLI 添加入口已接入,27,XINGZHOU PENG,已完成,src/services/inventory.py::add + CLI 添加物品（调试）
+GETS,背包,背包容量限制,每个玩家背包上限 N（如 50 件），超限拒绝添加并提示,已完成,P1-重要,#Validation,Inventory.CAPACITY=50；满时抛 InventoryFullError；CLI 容量查看入口已接入,28,XINGZHOU PENG,已完成,src/services/inventory.py CAPACITY + CLI 容量信息
 GETS,市场,挂单上架,选定背包内一件物品 + 输入售价（≥ 1），生成挂单写入 market.json，物品从背包移出但仍属于卖家,已规划,P0-关键,#Create,业务规则：同一物品不能重复挂单,29,MINGJIN LI,未完成,
 GETS,市场,撤销挂单,卖家撤销自己的活跃挂单，物品退回背包，挂单状态置 cancelled,已规划,P0-关键,#Update,可被操作栈撤销链覆盖,30,MINGJIN LI,未完成,
 GETS,市场,浏览全部挂单,展示所有 active 挂单（卖家 / 物品 / 售价 / 上架时间）,已完成,P0-关键,#Read,当前展示前 20 条并提示剩余数量,31,MINGJIN LI,已完成,MarketService.list_active + CLI 浏览入口
