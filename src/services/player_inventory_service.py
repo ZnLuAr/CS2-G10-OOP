@@ -164,6 +164,42 @@ class PlayerInventoryService:
         self.persistence.save_players(self.repo)
 
 
+    def remove_item_by_state(
+        self,
+        player_id: str,
+        item_id: str,
+        instance_state: dict | None,
+        count: int = 1
+    ) -> None:
+        """
+        从玩家背包移除特定状态的物品
+
+        与 remove_item 的区别：此方法精确匹配 item_id + instance_state，
+        用于需要区分物品状态的场景（如不同强化等级的同名装备）
+
+        Args:
+            player_id: 玩家 ID
+            item_id: 物品 ID
+            instance_state: 实例状态 dict，None 表示无状态
+            count: 移除数量，必须 > 0
+
+        Raises:
+            PlayerNotFoundError: 玩家不存在
+            ItemNotFoundError: 不存在匹配 item_id + state 的物品
+            InvalidInputError: count <= 0 或数量不足
+        """
+        if count <= 0:
+            raise InvalidInputError(field="count", value=count)
+
+        player = self._get_player_or_raise(player_id)
+        inventory = self._build_inventory(player_id, player.inventory)
+
+        inventory.remove_by_state(item_id, instance_state, count=count)
+
+        player.inventory = inventory.to_inventory_data()
+        self.persistence.save_players(self.repo)
+
+
     # ========== 业务流转接口（供 MarketService 调用） ==========
 
     def move_to_listing(self, player_id: str, item_id: str, count: int = 1) -> None:
@@ -234,6 +270,13 @@ class PlayerInventoryService:
         item = self._get_item_or_raise(item_id)
 
         from_inventory = self._build_inventory(from_player_id, from_player.inventory)
+
+        # 先获取将要转移的 instance_state（从第一个匹配的槽位）
+        source_slot = from_inventory.find(item_id)
+        if source_slot is None:
+            raise ItemNotFoundError(item_id=item_id)
+        instance_state = source_slot.instance_state
+
         from_inventory.remove(item_id, count=count)
 
         if from_player_id == to_player_id:
@@ -241,7 +284,7 @@ class PlayerInventoryService:
 
         to_inventory = self._build_inventory(to_player_id, to_player.inventory)
         try:
-            to_inventory.add(item, count=count)
+            to_inventory.add(item, count=count, instance_state=instance_state)
         except InventoryFullError as e:
             raise InventoryFullError(
                 player_id=to_player_id,

@@ -100,6 +100,23 @@ class Inventory:
         return None
 
 
+    def find_by_state(self, item_id: str, instance_state: dict | None) -> InventorySlot | None:
+        """按 item_id 和 instance_state 查找匹配的槽位
+
+        Args:
+            item_id: 物品 ID
+            instance_state: 实例状态 dict，None 表示无状态
+
+        Returns:
+            第一个匹配的槽位，或 None
+        """
+        target_state = instance_state or {}
+        for slot in self._slots:
+            if slot._item_id() == item_id and slot.instance_state == target_state:
+                return slot
+        return None
+
+
     def is_full(self) -> bool:
         """检查背包是否已满"""
         return len(self._slots) >= self.capacity
@@ -162,6 +179,9 @@ class Inventory:
         # 统一获取物品属性（支持对象或 dict）
         stackable = _get_attr(item, "stackable", False)
         stack_size_max = _get_attr(item, "stack_size_max", 1) if stackable else 1
+        # 防止无效 stack_size_max 导致死循环
+        if stackable and (not isinstance(stack_size_max, int) or stack_size_max <= 0):
+            stack_size_max = 1
 
         # 可堆叠物品：尝试合入既有槽位（需满足 item_id 相同且 instance_state 相同）
         if stackable:
@@ -233,6 +253,58 @@ class Inventory:
                     self._slots.remove_node(cur)
 
             cur = next_node
+
+
+    def remove_by_state(self, item_id: str, instance_state: dict | None, count: int = 1) -> None:
+        """
+        从背包移除指定数量、特定 instance_state 的物品
+
+        与 remove() 的区别：此方法精确匹配 item_id + instance_state，
+        只移除具有特定状态的物品（如特定强化等级、附魔属性等）
+
+        Args:
+            item_id: 要移除的物品 ID
+            instance_state: 实例状态 dict，None 表示无状态
+            count: 移除数量，必须 > 0
+
+        Raises:
+            InvalidInputError: count <= 0
+            ItemNotFoundError: 不存在匹配 item_id + state 的槽位
+            InvalidInputError: 数量不足（操作前检查，保证原子性）
+        """
+        if count <= 0:
+            raise InvalidInputError(field="count", value=count)
+
+        target_state = instance_state or {}
+
+        # 先查找匹配的槽位（只匹配第一个）
+        target_slot = None
+        for slot in self._slots:
+            if slot._item_id() == item_id and slot.instance_state == target_state:
+                target_slot = slot
+                break
+
+        if target_slot is None:
+            raise ItemNotFoundError(item_id=item_id)
+
+        if target_slot.count < count:
+            raise InvalidInputError(
+                field="count",
+                value=count,
+                context={"available": target_slot.count, "requested": count, "item_id": item_id}
+            )
+
+        # 原子性执行删除
+        if target_slot.count > count:
+            target_slot.count -= count
+        else:
+            # 需要找到 node 来删除
+            cur = self._slots.head
+            while cur:
+                if cur.data is target_slot:
+                    self._slots.remove_node(cur)
+                    break
+                cur = cur.next
 
 
     # ========== 序列化/反序列化 ==========

@@ -278,6 +278,9 @@ class Inventory:
     def find(self, item_id: str) -> InventorySlot | None:
         """# pure  线性扫描，O(n)"""
 
+    def find_by_state(self, item_id: str, instance_state: dict | None) -> InventorySlot | None:
+        """# pure  按 item_id + instance_state 精确查找槽位，用于区分同名不同状态的物品"""
+
     def is_full(self) -> bool: ...                    # pure
     def used(self) -> int: ...                        # pure  当前格数
 
@@ -297,10 +300,20 @@ class Inventory:
     def remove(self, item_id: str, count: int = 1) -> None:
         """从背包移除指定物品（用于成交 / 丢弃 / 上架）。# mutates
         双向链表已知节点 O(1) 删除。
+        注意：若背包中存在多个相同 item_id 但不同 instance_state 的物品，
+        此方法按链表顺序移除，不区分状态。如需精确移除特定状态，使用 remove_by_state。
         Raises:
             ItemNotFoundError: 该物品不在背包内
             InvalidInputError: count ≤ 0 或 count 超出该物品持有数
             ItemNotEquippableError: 试图移除已穿戴物品
+        """
+
+    def remove_by_state(self, item_id: str, instance_state: dict | None, count: int = 1) -> None:
+        """按 item_id + instance_state 精确移除物品（用于需要区分状态的细粒度操作）。# mutates
+        例如：只移除强化等级为 +5 的同名武器，保留 +3 的同名武器。
+        Raises:
+            ItemNotFoundError: 不存在匹配 item_id + state 的槽位
+            InvalidInputError: count ≤ 0 或 count 超出该状态物品持有数
         """
 ```
 

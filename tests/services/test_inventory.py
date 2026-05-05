@@ -229,6 +229,83 @@ class TestRemove:
         assert total == 5  # 12 - 7 = 5
 
 
+# ========== 按状态精确移除测试 ==========
+
+class TestRemoveByState:
+    """测试按 instance_state 精确移除物品"""
+
+    def test_remove_by_state_removes_exact_match(self, inventory):
+        """精确匹配 item_id + state 的槽位"""
+        item = make_stackable("i_001", max_stack=10)
+        inventory.add(item, count=3, instance_state={"enchant": "fire"})
+        inventory.add(item, count=2, instance_state={"enchant": "ice"})
+
+        # 只移除 fire 状态的 1 个
+        inventory.remove_by_state("i_001", {"enchant": "fire"}, count=1)
+
+        # fire 槽位剩 2 个，ice 槽位仍为 2 个
+        fire_slot = inventory.find_by_state("i_001", {"enchant": "fire"})
+        ice_slot = inventory.find_by_state("i_001", {"enchant": "ice"})
+        assert fire_slot.count == 2
+        assert ice_slot.count == 2
+
+    def test_remove_by_state_entire_slot(self, inventory):
+        """精确移除整个槽位"""
+        item = make_stackable("i_001", max_stack=10)
+        inventory.add(item, count=3, instance_state={"enchant": "fire"})
+        inventory.add(item, count=2, instance_state={"enchant": "ice"})
+
+        # 移除全部 fire 状态物品
+        inventory.remove_by_state("i_001", {"enchant": "fire"}, count=3)
+
+        # fire 槽位被删除，ice 槽位保留
+        assert inventory.find_by_state("i_001", {"enchant": "fire"}) is None
+        assert inventory.find_by_state("i_001", {"enchant": "ice"}) is not None
+        assert inventory.used() == 1
+
+    def test_remove_by_state_not_found_raises(self, inventory):
+        """找不到匹配 item_id + state 的槽位时抛 ItemNotFoundError"""
+        item = make_stackable("i_001", max_stack=10)
+        inventory.add(item, count=3, instance_state={"enchant": "fire"})
+
+        with pytest.raises(ItemNotFoundError):
+            inventory.remove_by_state("i_001", {"enchant": "nonexistent"}, count=1)
+
+    def test_remove_by_state_insufficient_count_raises(self, inventory):
+        """数量不足时不应修改背包状态"""
+        item = make_stackable("i_001", max_stack=10)
+        inventory.add(item, count=2, instance_state={"enchant": "fire"})
+
+        with pytest.raises(InvalidInputError):
+            inventory.remove_by_state("i_001", {"enchant": "fire"}, count=5)
+
+        # 背包未被修改
+        slot = inventory.find_by_state("i_001", {"enchant": "fire"})
+        assert slot.count == 2
+
+    def test_remove_by_state_count_zero_raises(self, inventory):
+        """count=0 应抛 InvalidInputError"""
+        item = make_stackable("i_001", max_stack=10)
+        inventory.add(item, count=2, instance_state={"enchant": "fire"})
+
+        with pytest.raises(InvalidInputError):
+            inventory.remove_by_state("i_001", {"enchant": "fire"}, count=0)
+
+    def test_remove_by_state_none_state(self, inventory):
+        """移除无 instance_state 的物品"""
+        item = make_stackable("i_001", max_stack=10)
+        inventory.add(item, count=3)  # 无 instance_state
+        inventory.add(item, count=2, instance_state={"enchant": "fire"})
+
+        # 用 None 移除无状态的物品
+        inventory.remove_by_state("i_001", None, count=2)
+
+        no_state_slot = inventory.find_by_state("i_001", None)
+        fire_slot = inventory.find_by_state("i_001", {"enchant": "fire"})
+        assert no_state_slot.count == 1
+        assert fire_slot.count == 2
+
+
 # ========== 排序测试 ==========
 
 class TestSortedView:
@@ -478,3 +555,15 @@ class TestDictItemSupport:
 
         with pytest.raises(AttributeError):
             slot.to_dict()
+
+    def test_stack_size_max_zero_or_negative_uses_default(self, inventory):
+        """stack_size_max <= 0 时不应导致死循环，应使用默认值 1"""
+        # stack_size_max = 0 的情况
+        item_zero = {"item_id": "i_zero", "name": "Zero Stack", "stackable": True, "stack_size_max": 0}
+        inventory.add(item_zero, count=1)
+        assert inventory.find("i_zero").count == 1
+
+        # stack_size_max = -1 的情况
+        item_neg = {"item_id": "i_neg", "name": "Negative Stack", "stackable": True, "stack_size_max": -1}
+        inventory.add(item_neg, count=1)
+        assert inventory.find("i_neg").count == 1

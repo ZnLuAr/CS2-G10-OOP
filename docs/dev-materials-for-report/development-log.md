@@ -483,4 +483,26 @@
   - 多人协作时，提前约定好接口文档和文件位置很重要；XINGZHOU 的实现逻辑正确，但因位置不对需要大量迁移工作
   - 通过增加 `PlayerInventoryService` 层，明确了 CLI 和业务逻辑的边界，后续 MarketService 也能复用同一套背包操作
 
+### [2026-05-05] Inventory 服务完善：Gemini 严重问题修复与状态精确移除 API
+
+- **变更内容**：
+  - 修复 `Inventory.add()` 中 `stack_size_max <= 0` 导致死循环的严重 bug：添加校验，无效值时回退到 1
+  - 修复 `PlayerInventoryService.transfer_item()` 丢失 `instance_state` 的严重 bug：先获取源槽位状态，转账时传递
+  - 新增 `Inventory.find_by_state()` / `remove_by_state()`：精确匹配 item_id + instance_state，用于区分同名不同状态的物品
+  - 新增 `PlayerInventoryService.remove_item_by_state()`：业务层封装
+  - 补充测试：`test_stack_size_max_zero_or_negative` / `test_transfer_item_preserves_instance_state` / 6 个 state-based removal 测试
+  - 更新 `docs/services-interface.md`：添加新 API 文档
+- **原因**：
+  - Gemini Code Review 指出了 3 个严重问题（死循环、state 丢失、模糊移除），需要在本轮修复以确保代码可 merge
+  - `remove()` 的"模糊匹配最早槽位"语义对某些场景（如精确移除特定强化等级装备）不够，需要精确移除 API
+- **关键设计决策**：
+  - `remove_by_state` 与 `remove` 并存：`remove` 保持简单语义（用于普通消耗品），`remove_by_state` 提供精确控制（用于带状态装备）
+  - `transfer_item` 取源槽位第一个匹配 item_id 的 instance_state，若卖家有多个不同 state 的同 ID 物品，转账的是"最早添加的那个"
+- **测试**：
+  - `tests/services/test_inventory.py`：31 → 37 个测试（新增 6 个 state-based 测试 + 1 个 stack_size_max 测试）
+  - `tests/services/test_player_inventory_service.py`：3 → 8 个测试（新增 state 保留测试 + service 层 state-based 测试）
+  - 全量测试：**204 passed**
+- **遗留问题**：
+  - `MarketService` 仍待接入 `PlayerInventoryService` 的流转接口（`move_to_listing` / `move_from_listing` / `transfer_item`）
+
 <!-- 在此添加新条目 -->
