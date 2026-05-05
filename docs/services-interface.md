@@ -111,11 +111,11 @@ class Persistence:
         """
 
     # ===== 保存 =====
-    def save_players(self, players: list["Player"]) -> None: ...    # persists
-    def save_items(self, items: list["Item"]) -> None: ...          # persists
-    def save_market(self, listings: list["Listing"]) -> None: ...   # persists
-    def save_transactions(self, txns: list["Transaction"]) -> None: ...  # persists
-    def save_catalog(self, catalog: "CatalogTree") -> None: ...     # persists
+    def save_players(self, repo: "Repository") -> None: ...         # persists
+    def save_items(self, repo: "Repository") -> None: ...           # persists
+    def save_market(self, repo: "Repository") -> None: ...          # persists
+    def save_transactions(self, repo: "Repository") -> None: ...    # persists
+    def save_catalog(self, repo: "Repository") -> None: ...         # persists
     def save_all(self, repo: "Repository") -> None: ...             # persists
 
     # ===== ID 分配 =====
@@ -147,10 +147,15 @@ class Repository:
 
 ## 5. `logger.py` 日志
 
-详见 [`error-and-log-design.md §6`](./error-and-log-design.md)，此处仅列签名：
+详见 [`error-and-log-design.md §6`](./error-and-log-design.md)。当前实现：
+
+- 控制台输出：`INFO/DEBUG -> stdout`，`WARN/ERROR -> stderr`
+- 同步 append 写入 `data/operation.log`
+- 文件写入失败时静默忽略，不中断业务流程
 
 ```python
 class Log:
+    def __init__(self, log_file: str | None = "data/operation.log") -> None: ...
     def debug(self, module: str, event: str, **context) -> None: ...
     def info(self, module: str, event: str, **context) -> None: ...
     def warn(self, module: str, event: str, **context) -> None: ...
@@ -273,6 +278,9 @@ class Inventory:
     def find(self, item_id: str) -> InventorySlot | None:
         """# pure  线性扫描，O(n)"""
 
+    def find_by_state(self, item_id: str, instance_state: dict | None) -> InventorySlot | None:
+        """# pure  按 item_id + instance_state 精确查找槽位，用于区分同名不同状态的物品"""
+
     def is_full(self) -> bool: ...                    # pure
     def used(self) -> int: ...                        # pure  当前格数
 
@@ -292,10 +300,20 @@ class Inventory:
     def remove(self, item_id: str, count: int = 1) -> None:
         """从背包移除指定物品（用于成交 / 丢弃 / 上架）。# mutates
         双向链表已知节点 O(1) 删除。
+        注意：若背包中存在多个相同 item_id 但不同 instance_state 的物品，
+        此方法按链表顺序移除，不区分状态。如需精确移除特定状态，使用 remove_by_state。
         Raises:
             ItemNotFoundError: 该物品不在背包内
             InvalidInputError: count ≤ 0 或 count 超出该物品持有数
             ItemNotEquippableError: 试图移除已穿戴物品
+        """
+
+    def remove_by_state(self, item_id: str, instance_state: dict | None, count: int = 1) -> None:
+        """按 item_id + instance_state 精确移除物品（用于需要区分状态的细粒度操作）。# mutates
+        例如：只移除强化等级为 +5 的同名武器，保留 +3 的同名武器。
+        Raises:
+            ItemNotFoundError: 不存在匹配 item_id + state 的槽位
+            InvalidInputError: count ≤ 0 或 count 超出该状态物品持有数
         """
 ```
 
@@ -342,7 +360,7 @@ class MarketService:
 
     def query_by_price_range(self, min_price: int,
                              max_price: int) -> list[Listing]:
-        """# pure  BST 范围查询，核心数据结构演示点（功能 ID 32）"""
+        """# pure  目标实现为 BST 范围查询，核心数据结构演示点（功能 ID 32）；当前骨架可先线性扫描"""
 
     def query_by_category(self, category_prefix: str) -> list[Listing]: ...  # pure
     def query_by_seller(self, seller_id: str) -> list[Listing]: ...          # pure
@@ -389,11 +407,20 @@ class TransactionService:
 
     def by_item(self, item_id: str) -> list[Transaction]: ...  # pure
 
+    def by_category(self, category_prefix: str) -> list[Transaction]:
+        """# pure  返回分类前缀匹配的所有交易记录，按 completed_at 倒序"""
+
     # ===== 统计 =====
     def price_stats(self, item_id: str) -> dict:
         """# pure
         Returns: {"min": int, "max": int, "avg": float, "count": int}
         Raises: InvalidInputError 若无成交记录
+        """
+
+    def price_stats_by_category(self, category_prefix: str) -> dict:
+        """# pure  对某分类前缀下的所有交易记录计算价格统计
+        Returns: {"min": int, "max": int, "avg": float, "count": int}
+        Raises: InvalidInputError 若该分类下无成交记录
         """
 
     # ===== 排行榜 =====

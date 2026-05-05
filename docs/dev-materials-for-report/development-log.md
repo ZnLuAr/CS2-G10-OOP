@@ -324,4 +324,185 @@
   - 当前“价格走势”仍是时间倒序明细展示，不是可视化趋势图
   - 交易额榜与玩家历史目前仍基于线性扫描 / 聚合，性能优化已单列到上方“性能遗留项 TODO”
 
+### [2026-04-22] 完成操作日志落盘（功能 ID 56）
+
+- **变更内容**：
+  - 扩展 [`src/services/logger.py`](../../src/services/logger.py)：
+    - 保留控制台输出
+    - 追加写入 `data/operation.log`
+    - 文件写入失败时吞 `OSError`，不影响业务流程
+  - 修改 [`src/services/persistence.py`](../../src/services/persistence.py)：
+    - `_validate_integrity()` 中“交易引用缺失挂单”的软警告不再 `print`
+    - 改为 `log.warn("persistence", "txn_references_missing_listing", ...)`
+  - 新增 [`tests/services/test_logger.py`](../../tests/services/test_logger.py)
+  - 更新 [`tests/services/test_persistence.py`](../../tests/services/test_persistence.py)：补“软警告只告警不抛异常”测试
+  - 更新 [`docs/services-interface.md`](../services-interface.md)：logger 小节补充实际落盘行为
+- **原因**：
+  - `docs/error-and-log-design.md` 与功能列表都要求关键操作写入 `data/operation.log`
+  - 之前 logger 只有统一入口，没有真正落盘；Persistence 软警告也还停留在 `print`
+- **关键设计决策**：
+  - logger 文件写入失败只吞 `OSError`，不吞更宽泛的 `Exception`，避免静默掩盖真实代码 bug
+  - 保持 logger 对外接口不变：`log.info/warn/error/debug(module, event, **context)`
+  - 软警告行为不变：仍然只告警、不抛异常，只是输出介质从 `print` 改为 `log.warn`
+- **测试**：
+  - `tests/services/test_logger.py` + `tests/services/test_persistence.py` 相关测试通过：**24 passed**
+- **遗留问题**：
+  - 当前只完成了日志落盘，不包含 CLI 菜单上的“手动保存 / 数据重置”入口（留到下一轮）
+
+### [2026-04-22] 测试补强与仓库审计（不新增业务功能）
+
+- **变更内容**：
+  - 补强 [`tests/ui/test_cli.py`](../../tests/ui/test_cli.py)：
+    - 历史报表大输出列表只显示前 20 条的回归测试
+    - 交易额榜非空场景测试
+    - 分类价格统计非空场景测试
+    - 将部分 `len(out) > 0` 弱断言替换为关键字段断言
+  - 补强 [`tests/services/test_logger.py`](../../tests/services/test_logger.py)：
+    - `warn/error -> stderr`
+    - `debug/info -> stdout`
+    - `context` key 排序稳定
+  - 更新 [`docs/dev-materials-for-report/testing-notes.md`](./testing-notes.md)：补“CLI 与 logger 测试补强经验”
+- **原因**：
+  - 这一轮不再继续开新功能，而是优先把已落地功能的回归保护补扎实
+  - 早期 CLI 测试存在较多 `len(out) > 0` 式弱断言，对真实输出语义保护不足
+- **仓库审计结论**：
+  - **真功能缺口（但暂不动）**：`MarketService.create_listing/buy/settle_pending`、`Inventory` 真实实现、`Item` 多态创建/删除、`cancel_listing()` 完整退回背包
+  - **文档—实现偏差**：当前“价格走势”仍以时间倒序明细展示，不是可视化趋势图；部分接口仍属于 Phase 1 / 1.5 过渡形态
+  - **测试缺口**：端到端测试仍缺；更多 CLI 富文本输出仍可继续加强断言
+  - **可接受留白**：不触碰其他组员主责模块，保留阶段性占位实现与 TODO 注释
+- **测试**：
+  - `tests/ui/test_cli.py` + `tests/services/test_logger.py` 相关测试通过：**43 passed**
+- **遗留问题**：
+  - 手动保存 / 数据重置 CLI 入口尚未开始（按当前决定后置）
+  - 下一轮若继续补强，优先考虑把系统端到端测试（功能 ID 61）做起来
+
+### [2026-04-22] 修正文档中的枚举漂移
+
+- **变更内容**：
+  - 修改 [`docs/data-design.md`](../data-design.md)
+  - 将示例 JSON 中错误的 `rarity = "legend"` 统一修正为 `rarity = "legendary"`
+  - 将待讨论项里与当前代码/数据不一致的职业 `rogue` 修正为 `summon`
+- **原因**：
+  - 仓库实际数据（`data/items.json`）、seed 脚本（`src/services/seed.py`）和字段约定都使用 `legendary`
+  - 玩家职业的代码常量与种子数据当前实际采用的是 `summon`，继续在文档里写 `rogue` 会误导后续开发者
+- **遗留问题**：
+  - 仍需继续做一轮更系统的“规范文档一致性检查”，尤其是功能列表、接口文档和实现之间的阶段性偏差
+
+### [2026-04-26] 复查并修正参考文档中的设计偏差
+
+- **变更内容**：
+  - 系统复查 [`docs/services-interface.md`](../services-interface.md)、[`docs/error-and-log-design.md`](../error-and-log-design.md)、[`docs/data-design.md`](../data-design.md) 与 [`docs/功能列表.csv`](../功能列表.csv)
+  - 修正 `Persistence.save_*` 接口签名与当前实现不一致的问题
+  - 补齐 `TransactionService.by_category()` / `price_stats_by_category()` 等已实现但接口文档未记录的方法
+  - 修正日志规范中过期的描述：logger 已实现，不再是“待建”；日志级别实际使用 `WARN`，并明确 `DEBUG/INFO -> stdout`、`WARN/ERROR -> stderr`
+  - 修正数据设计中的示例问题：武器示例不应出现 `stack_size_max`，并澄清种子数据中的 `stats.count` 与运行时 `InventorySlot.count` 不是同一个概念
+  - 重新审视功能列表完成状态，避免把“有基础入口”误标为“完整完成”
+- **原因**：
+  - 项目前期经验不足，文档更多是“预想中的设计蓝图”，没有充分考虑后续实现过程中的阶段性落差
+  - 随着代码逐步落地，接口签名、日志行为、功能完成度和数据字段语义都出现了细微偏差；如果不集中修正，后续成员会被过期文档误导
+- **复查后的处理原则**：
+  - 已经完整实现并有 CLI / 测试支撑的功能，才标为“已完成”
+  - 只有基础入口但核心数据结构或多态目标未完成的功能，仍保留“未完成”，并在备注中写明当前阶段状态
+  - 文档不再只写理想目标，而是同时标明“当前实现”和“最终目标”的差异
+- **测试**：
+  - 文档修正后运行全量测试：**159 passed**
+- **Code review 后续建议**：
+  - Gemini review 提到：当前 logger 每次调用都会同步 append 到 `data/operation.log`，如果未来日志写入变频繁，可以考虑由 YUXI 评估是否引入内存 buffer / 批量 flush，减少频繁 I/O
+  - 本轮不直接修改 `src/services/logger.py`，避免在非 logger 主责范围内扩大实现复杂度；先作为后续优化点记录
+- **反思**：
+  - 文档不是一次性产物，而是需要随着实现持续校准的契约；越是多人协作项目，越不能让过期文档长期存在
+
+### [2026-04-26] 整合 XINGZHOU 的背包实现到项目结构
+
+- **背景**：
+  - OOP 作业截止日临近，XINGZHOU 的背包实现在 `origin/feat/inventory-develop` 分支，但存在结构性问题
+  - PR review 中指出：实现位置错误（`src/backpack/` vs `src/services/inventory.py`）、接口名不一致、缺少与 Persistence 的集成
+- **变更内容**：
+  - 创建 `src/structures/doubly_linked_list.py`，整合双向链表实现
+  - 重写 `src/services/inventory.py` 的 `Inventory` 类：
+    - 对齐接口文档方法名：`add()`/`remove()`/`find()`/`sorted_view()`/`slots()`
+    - 修复原子性移除 bug：先统计数量，不足时直接抛异常，不修改背包状态
+    - 添加 `count <= 0` 校验
+    - 修复 `instance_state` 处理：复制 dict 避免共享引用，合并时比较 state
+    - 添加 `from_inventory_data()` / `to_inventory_data()` 用于与 `Player.inventory` 双向转换
+    - 支持 dict 和 Item 对象混合
+  - 创建 `src/services/player_inventory_service.py`：
+    - 封装背包业务操作：查询、添加、移除、流转接口
+    - CLI 只负责输入输出，业务逻辑和持久化统一在服务层处理
+    - 提供 `move_to_listing()` / `move_from_listing()` / `transfer_item()` 供 MarketService 后续调用
+  - 简化 `src/ui/cli.py` 背包相关方法：
+    - 初始化时创建 `inventory_service`
+    - 查看、排序、添加、移除、容量查询都通过服务层调用
+    - 移除直接在 CLI 中构造 Inventory 和调用 `save_players` 的逻辑
+  - 更新 `src/services/__init__.py` 导出新服务
+  - 更新 `docs/功能列表.csv`：背包相关 5 项功能标记为已完成
+- **测试**：
+  - 新增 `tests/services/test_inventory.py`，29 个测试覆盖：
+    - 添加/查询（可堆叠合并、溢出新建槽位）
+    - 满容量边界
+    - 移除原子性（数量不足时不应修改背包）
+    - 排序（不改变原链表顺序）
+    - 序列化/反序列化（双向转换一致性）
+    - `instance_state` 复制和合并判断
+    - dict 物品支持
+  - 全量测试：**188 passed**（新增 29 个）
+- **设计思路**：
+  - **为什么拆分 `Inventory` 和 `PlayerInventoryService`**：
+    - `Inventory` 是纯数据结构，负责槽位管理和堆叠逻辑，不感知 `Repository` 或 `Persistence`
+    - `PlayerInventoryService` 是业务服务层，负责构造 `Inventory`、调用操作、持久化保存
+    - 这样 CLI 和 MarketService 都通过同一入口操作背包，避免各自重复构造和保存逻辑
+  - **原子性移除的实现**：
+    - 先遍历统计目标 `item_id` 的总数量（只读，O(n)）
+    - 若不足则直接抛 `InvalidInputError`，此时背包状态未做任何修改
+    - 确认足够后再执行第二次遍历进行实际删除
+    - 避免 review 中指出的"先删后抛异常导致状态不一致"问题
+  - **instance_state 的两种复制策略**：
+    - `InventorySlot.__init__` 中对传入的 `instance_state` 做 `dict()` 复制，避免外部修改影响槽位
+    - `to_dict()` 返回时也做复制，避免序列化后的数据被意外修改
+    - 合并堆叠时同时比较 `item_id` 和 `instance_state`，不同状态的同 ID 物品不会合并
+  - **支持 dict 和 Item 对象混合**：
+    - 早期 `Repository.items` 存储的是 dict，JIAFENG 的 Item 多态层完成后会是对象
+    - 通过 `_get_attr()` / `_item_id()` 统一访问，两种类型都能工作，平滑过渡
+- **测试思路**：
+  - **场景化测试**：不按方法分，按"用户场景"分（添加/移除/排序/序列化/边界）
+  - **关键边界覆盖**：
+    - 可堆叠物品合并与溢出新建槽位
+    - `count <= 0` 的校验位置（必须在修改前）
+    - 移除原子性（数量不足时状态不变）——这是 review 重点强调的 bug
+    - 排序不改变原链表顺序（验证 `sorted_view` 返回的是新列表）
+  - **持久化一致性**：
+    - `from_inventory_data()` → 操作 → `to_inventory_data()` → 对比原始数据
+    - 验证双向转换后数据结构一致，且 `instance_state` 不丢失
+  - **FakeItem 模式**：
+    - 测试不依赖 JIAFENG 的 Item 多态层，用简单对象模拟物品属性
+    - 同时测试 dict 物品，确保两种数据类型都兼容
+- **Code review 后续建议**：
+  - 当前 `cancel_listing()` 只改状态不退回物品的问题，待 MINGJIN 的 MarketService 完善后，应调用 `PlayerInventoryService.move_from_listing()` 退回物品
+  - `MarketService.buy()` 实现后，应使用 `PlayerInventoryService.transfer_item()` 处理买家/卖家的物品转移
+- **反思**：
+  - 多人协作时，提前约定好接口文档和文件位置很重要；XINGZHOU 的实现逻辑正确，但因位置不对需要大量迁移工作
+  - 通过增加 `PlayerInventoryService` 层，明确了 CLI 和业务逻辑的边界，后续 MarketService 也能复用同一套背包操作
+
+### [2026-05-05] Inventory 服务完善：Gemini 严重问题修复与状态精确移除 API
+
+- **变更内容**：
+  - 修复 `Inventory.add()` 中 `stack_size_max <= 0` 导致死循环的严重 bug：添加校验，无效值时回退到 1
+  - 修复 `PlayerInventoryService.transfer_item()` 丢失 `instance_state` 的严重 bug：先获取源槽位状态，转账时传递
+  - 新增 `Inventory.find_by_state()` / `remove_by_state()`：精确匹配 item_id + instance_state，用于区分同名不同状态的物品
+  - 新增 `PlayerInventoryService.remove_item_by_state()`：业务层封装
+  - 补充测试：`test_stack_size_max_zero_or_negative` / `test_transfer_item_preserves_instance_state` / 6 个 state-based removal 测试
+  - 更新 `docs/services-interface.md`：添加新 API 文档
+- **原因**：
+  - Gemini Code Review 指出了 3 个严重问题（死循环、state 丢失、模糊移除），需要在本轮修复以确保代码可 merge
+  - `remove()` 的"模糊匹配最早槽位"语义对某些场景（如精确移除特定强化等级装备）不够，需要精确移除 API
+- **关键设计决策**：
+  - `remove_by_state` 与 `remove` 并存：`remove` 保持简单语义（用于普通消耗品），`remove_by_state` 提供精确控制（用于带状态装备）
+  - `transfer_item` 取源槽位第一个匹配 item_id 的 instance_state，若卖家有多个不同 state 的同 ID 物品，转账的是"最早添加的那个"
+- **测试**：
+  - `tests/services/test_inventory.py`：31 → 37 个测试（新增 6 个 state-based 测试 + 1 个 stack_size_max 测试）
+  - `tests/services/test_player_inventory_service.py`：3 → 8 个测试（新增 state 保留测试 + service 层 state-based 测试）
+  - 全量测试：**204 passed**
+- **遗留问题**：
+  - `MarketService` 仍待接入 `PlayerInventoryService` 的流转接口（`move_to_listing` / `move_from_listing` / `transfer_item`）
+
 <!-- 在此添加新条目 -->

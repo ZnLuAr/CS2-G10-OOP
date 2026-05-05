@@ -89,7 +89,12 @@ class TradingCLI:
     def __init__(self, app: App) -> None:
         self.app = app
         self.repo = app.repo
+        self.persistence = app.persistence
         self.op_stack = OperationStack(max_size=20)
+
+        # 初始化背包服务（后续 MarketService 也可复用）
+        from src.services.player_inventory_service import PlayerInventoryService
+        self.inventory_service = PlayerInventoryService(self.repo, self.persistence)
 
 
     # -------------------------------------------------------------------------
@@ -342,14 +347,86 @@ class TradingCLI:
         if choice == "1":
             self._show_inventory()
         elif choice == "2":
-            print("\n[按稀有度排序] 功能待 Inventory 实现")
+            self._show_inventory_sorted()
         elif choice == "3":
-            print("\n[移除物品] 功能待 Inventory 实现")
+            self._remove_item_from_inventory()
         elif choice == "4":
-            print("\n[添加物品] 功能待 Inventory 实现")
+            self._add_item_to_inventory()
         elif choice == "5":
-            print("\n[容量信息] 功能待 Inventory 实现")
+            self._show_inventory_capacity()
         self._pause()
+
+    def _show_inventory_sorted(self) -> None:
+        """按稀有度排序查看背包"""
+        pid = input("请输入玩家 ID：").strip()
+
+        try:
+            sorted_slots = self.inventory_service.get_sorted_view(pid, key="rarity")
+            player = self.repo.players.get(pid)
+            if player is None:
+                print(f"[提示] 玩家 {pid} 不存在")
+                return
+        except Exception as e:
+            print(f"[提示] {getattr(e, 'message', str(e))}")
+            return
+
+        print(f"\n玩家 {player.name} 的背包（按稀有度排序）：")
+        print("-" * 40)
+        if not sorted_slots:
+            print("  （空）")
+        else:
+            for i, slot in enumerate(sorted_slots, 1):
+                print(f"  {i}. {slot.get_display_name()} [{slot.get_rarity()}] x{slot.count}")
+        print(f"-" * 40)
+        info = self.inventory_service.get_capacity_info(pid)
+        print(f"  已用槽位：{info['used']} / {info['capacity']}")
+
+    def _remove_item_from_inventory(self) -> None:
+        """从背包移除物品"""
+        pid = input("请输入玩家 ID：").strip()
+        item_id = input("请输入要移除的物品 ID：").strip()
+        count_str = input("请输入移除数量（默认 1）：").strip()
+        count = int(count_str) if count_str.isdigit() else 1
+
+        try:
+            self.inventory_service.remove_item(pid, item_id, count)
+            print(f"[成功] 已从背包移除 {count} 个 {item_id}")
+        except Exception as e:
+            print(f"[提示] {getattr(e, 'message', str(e))}")
+
+    def _add_item_to_inventory(self) -> None:
+        """向背包添加物品（管理员调试用）"""
+        pid = input("请输入玩家 ID：").strip()
+        item_id = input("请输入要添加的物品 ID：").strip()
+        count_str = input("请输入添加数量（默认 1）：").strip()
+        count = int(count_str) if count_str.isdigit() else 1
+
+        try:
+            self.inventory_service.add_item(pid, item_id, count)
+            item = self.repo.items.get(item_id, {})
+            print(f"[成功] 已向背包添加 {count} 个 {item.get('name', item_id)}")
+        except Exception as e:
+            print(f"[提示] {getattr(e, 'message', str(e))}")
+
+    def _show_inventory_capacity(self) -> None:
+        """显示背包容量信息"""
+        pid = input("请输入玩家 ID：").strip()
+
+        try:
+            info = self.inventory_service.get_capacity_info(pid)
+            player = self.repo.players.get(pid)
+            if player is None:
+                print(f"[提示] 玩家 {pid} 不存在")
+                return
+        except Exception as e:
+            print(f"[提示] {getattr(e, 'message', str(e))}")
+            return
+
+        print(f"\n玩家 {player.name} 的背包容量：")
+        print(f"  总容量：{info['capacity']}")
+        print(f"  已用槽位：{info['used']}")
+        print(f"  剩余槽位：{info['remaining']}")
+        print(f"  状态：{'已满' if info['is_full'] else '可用'}")
 
 
     def _handle_market_choice(self, choice: str) -> None:
@@ -516,23 +593,26 @@ class TradingCLI:
 
 
     def _show_inventory(self) -> None:
-        """查看玩家背包"""
+        """查看玩家背包（使用 Inventory 双向链表顺序）"""
         pid = input("请输入玩家 ID：").strip()
-        player = self.repo.players.get(pid)
-        if not player:
-            print(f"[提示] 玩家 {pid} 不存在")
+
+        try:
+            slots = self.inventory_service.get_slots(pid)
+        except Exception as e:
+            print(f"[提示] {getattr(e, 'message', str(e))}")
             return
 
+        player = self.repo.players.get(pid)
         print(f"\n玩家 {player.name} 的背包：")
         print("-" * 40)
-        if not player.inventory:
+        if not slots:
             print("  （空）")
         else:
-            for i, slot in enumerate(player.inventory, 1):
-                iid = slot.get('item_id', 'unknown')
-                item = self.repo.items.get(iid, {})
-                name = item.get('name', iid)
-                print(f"  {i}. {name} x{slot.get('count', 1)}")
+            for i, slot in enumerate(slots, 1):
+                print(f"  {i}. {slot.get_display_name()} [{slot.get_rarity()}] x{slot.count}")
+        print(f"-" * 40)
+        info = self.inventory_service.get_capacity_info(pid)
+        print(f"  已用槽位：{info['used']} / {info['capacity']}")
 
 
     def _show_active_listings(self) -> None:

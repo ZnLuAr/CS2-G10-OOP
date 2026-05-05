@@ -346,7 +346,9 @@ class TestDataDisplay:
         fresh_cli.run()
 
         out = capsys.readouterr().out
-        assert "嘉豪榜" in out
+        assert "排名" in out
+        assert "玩家" in out
+        assert "金币" in out
 
     def test_player_transactions_display(self, fresh_cli, mock_input, capsys):
         """玩家成交历史（可能为空）"""
@@ -374,6 +376,33 @@ class TestDataDisplay:
 
         out = capsys.readouterr().out
         assert "分类成交历史" in out
+        assert "暂无成交记录" in out
+
+    def test_item_transactions_limit_output(self, fresh_cli, mock_input, capsys):
+        """物品成交历史最多显示 20 条，并提示剩余数量"""
+        from src.models import Transaction
+
+        first_iid = list(fresh_cli.repo.items.keys())[0]
+        for i in range(25):
+            fresh_cli.repo.transactions.append(
+                Transaction(
+                    transaction_id=f"t_91{i:03d}",
+                    listing_id="l_001",
+                    buyer_id="p_001",
+                    seller_id="p_002",
+                    item_id=first_iid,
+                    count=1,
+                    price=100 + i,
+                    total=100 + i,
+                    completed_at=f"2026-04-22T00:00:{i:02d}Z",
+                )
+            )
+
+        mock_input("5", "2", "1", first_iid, "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "还有 5 条未显示" in out
 
     def test_price_stats_by_item_id_empty(self, fresh_cli, mock_input, capsys):
         """按 item_id 查看价格统计（无数据）"""
@@ -393,6 +422,34 @@ class TestDataDisplay:
         out = capsys.readouterr().out
         assert "暂无成交数据" in out
 
+    def test_price_stats_by_category_non_empty(self, fresh_cli, mock_input, capsys):
+        """按分类查看价格统计（有数据）"""
+        from src.models import Transaction
+
+        first_iid = list(fresh_cli.repo.items.keys())[0]
+        first_category = fresh_cli.repo.items[first_iid]["category"].split(".")[0]
+        fresh_cli.repo.transactions.append(
+            Transaction(
+                transaction_id="t_920001",
+                listing_id="l_001",
+                buyer_id="p_001",
+                seller_id="p_002",
+                item_id=first_iid,
+                count=1,
+                price=233,
+                total=233,
+                completed_at="2026-04-22T01:00:00Z",
+            )
+        )
+
+        mock_input("5", "3", "2", first_category, "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "价格统计" in out
+        assert "成交次数" in out
+        assert "平均成交价" in out
+
     def test_top_volume_display_empty(self, fresh_cli, mock_input, capsys):
         """交易额榜（无数据）"""
         mock_input("5", "5", "", "b", "", "6")
@@ -400,6 +457,31 @@ class TestDataDisplay:
 
         out = capsys.readouterr().out
         assert "交易额榜" in out
+
+    def test_top_volume_display_non_empty(self, fresh_cli, mock_input, capsys):
+        """交易额榜（有数据）"""
+        from src.models import Transaction
+
+        fresh_cli.repo.transactions.append(
+            Transaction(
+                transaction_id="t_930001",
+                listing_id="l_001",
+                buyer_id="p_001",
+                seller_id="p_002",
+                item_id=list(fresh_cli.repo.items.keys())[0],
+                count=1,
+                price=500,
+                total=500,
+                completed_at="2026-04-22T02:00:00Z",
+            )
+        )
+
+        mock_input("5", "5", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "交易额榜" in out
+        assert "成交额" in out
 
 
 
