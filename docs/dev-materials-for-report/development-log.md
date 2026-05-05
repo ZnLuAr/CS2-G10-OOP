@@ -412,4 +412,97 @@
 - **反思**：
   - 文档不是一次性产物，而是需要随着实现持续校准的契约；越是多人协作项目，越不能让过期文档长期存在
 
+### [2026-04-26] 整合 XINGZHOU 的背包实现到项目结构
+
+- **背景**：
+  - OOP 作业截止日临近，XINGZHOU 的背包实现在 `origin/feat/inventory-develop` 分支，但存在结构性问题
+  - PR review 中指出：实现位置错误（`src/backpack/` vs `src/services/inventory.py`）、接口名不一致、缺少与 Persistence 的集成
+- **变更内容**：
+  - 创建 `src/structures/doubly_linked_list.py`，整合双向链表实现
+  - 重写 `src/services/inventory.py` 的 `Inventory` 类：
+    - 对齐接口文档方法名：`add()`/`remove()`/`find()`/`sorted_view()`/`slots()`
+    - 修复原子性移除 bug：先统计数量，不足时直接抛异常，不修改背包状态
+    - 添加 `count <= 0` 校验
+    - 修复 `instance_state` 处理：复制 dict 避免共享引用，合并时比较 state
+    - 添加 `from_inventory_data()` / `to_inventory_data()` 用于与 `Player.inventory` 双向转换
+    - 支持 dict 和 Item 对象混合
+  - 创建 `src/services/player_inventory_service.py`：
+    - 封装背包业务操作：查询、添加、移除、流转接口
+    - CLI 只负责输入输出，业务逻辑和持久化统一在服务层处理
+    - 提供 `move_to_listing()` / `move_from_listing()` / `transfer_item()` 供 MarketService 后续调用
+  - 简化 `src/ui/cli.py` 背包相关方法：
+    - 初始化时创建 `inventory_service`
+    - 查看、排序、添加、移除、容量查询都通过服务层调用
+    - 移除直接在 CLI 中构造 Inventory 和调用 `save_players` 的逻辑
+  - 更新 `src/services/__init__.py` 导出新服务
+  - 更新 `docs/功能列表.csv`：背包相关 5 项功能标记为已完成
+- **测试**：
+  - 新增 `tests/services/test_inventory.py`，29 个测试覆盖：
+    - 添加/查询（可堆叠合并、溢出新建槽位）
+    - 满容量边界
+    - 移除原子性（数量不足时不应修改背包）
+    - 排序（不改变原链表顺序）
+    - 序列化/反序列化（双向转换一致性）
+    - `instance_state` 复制和合并判断
+    - dict 物品支持
+  - 全量测试：**188 passed**（新增 29 个）
+- **设计思路**：
+  - **为什么拆分 `Inventory` 和 `PlayerInventoryService`**：
+    - `Inventory` 是纯数据结构，负责槽位管理和堆叠逻辑，不感知 `Repository` 或 `Persistence`
+    - `PlayerInventoryService` 是业务服务层，负责构造 `Inventory`、调用操作、持久化保存
+    - 这样 CLI 和 MarketService 都通过同一入口操作背包，避免各自重复构造和保存逻辑
+  - **原子性移除的实现**：
+    - 先遍历统计目标 `item_id` 的总数量（只读，O(n)）
+    - 若不足则直接抛 `InvalidInputError`，此时背包状态未做任何修改
+    - 确认足够后再执行第二次遍历进行实际删除
+    - 避免 review 中指出的"先删后抛异常导致状态不一致"问题
+  - **instance_state 的两种复制策略**：
+    - `InventorySlot.__init__` 中对传入的 `instance_state` 做 `dict()` 复制，避免外部修改影响槽位
+    - `to_dict()` 返回时也做复制，避免序列化后的数据被意外修改
+    - 合并堆叠时同时比较 `item_id` 和 `instance_state`，不同状态的同 ID 物品不会合并
+  - **支持 dict 和 Item 对象混合**：
+    - 早期 `Repository.items` 存储的是 dict，JIAFENG 的 Item 多态层完成后会是对象
+    - 通过 `_get_attr()` / `_item_id()` 统一访问，两种类型都能工作，平滑过渡
+- **测试思路**：
+  - **场景化测试**：不按方法分，按"用户场景"分（添加/移除/排序/序列化/边界）
+  - **关键边界覆盖**：
+    - 可堆叠物品合并与溢出新建槽位
+    - `count <= 0` 的校验位置（必须在修改前）
+    - 移除原子性（数量不足时状态不变）——这是 review 重点强调的 bug
+    - 排序不改变原链表顺序（验证 `sorted_view` 返回的是新列表）
+  - **持久化一致性**：
+    - `from_inventory_data()` → 操作 → `to_inventory_data()` → 对比原始数据
+    - 验证双向转换后数据结构一致，且 `instance_state` 不丢失
+  - **FakeItem 模式**：
+    - 测试不依赖 JIAFENG 的 Item 多态层，用简单对象模拟物品属性
+    - 同时测试 dict 物品，确保两种数据类型都兼容
+- **Code review 后续建议**：
+  - 当前 `cancel_listing()` 只改状态不退回物品的问题，待 MINGJIN 的 MarketService 完善后，应调用 `PlayerInventoryService.move_from_listing()` 退回物品
+  - `MarketService.buy()` 实现后，应使用 `PlayerInventoryService.transfer_item()` 处理买家/卖家的物品转移
+- **反思**：
+  - 多人协作时，提前约定好接口文档和文件位置很重要；XINGZHOU 的实现逻辑正确，但因位置不对需要大量迁移工作
+  - 通过增加 `PlayerInventoryService` 层，明确了 CLI 和业务逻辑的边界，后续 MarketService 也能复用同一套背包操作
+
+### [2026-05-05] Inventory 服务完善：Gemini 严重问题修复与状态精确移除 API
+
+- **变更内容**：
+  - 修复 `Inventory.add()` 中 `stack_size_max <= 0` 导致死循环的严重 bug：添加校验，无效值时回退到 1
+  - 修复 `PlayerInventoryService.transfer_item()` 丢失 `instance_state` 的严重 bug：先获取源槽位状态，转账时传递
+  - 新增 `Inventory.find_by_state()` / `remove_by_state()`：精确匹配 item_id + instance_state，用于区分同名不同状态的物品
+  - 新增 `PlayerInventoryService.remove_item_by_state()`：业务层封装
+  - 补充测试：`test_stack_size_max_zero_or_negative` / `test_transfer_item_preserves_instance_state` / 6 个 state-based removal 测试
+  - 更新 `docs/services-interface.md`：添加新 API 文档
+- **原因**：
+  - Gemini Code Review 指出了 3 个严重问题（死循环、state 丢失、模糊移除），需要在本轮修复以确保代码可 merge
+  - `remove()` 的"模糊匹配最早槽位"语义对某些场景（如精确移除特定强化等级装备）不够，需要精确移除 API
+- **关键设计决策**：
+  - `remove_by_state` 与 `remove` 并存：`remove` 保持简单语义（用于普通消耗品），`remove_by_state` 提供精确控制（用于带状态装备）
+  - `transfer_item` 取源槽位第一个匹配 item_id 的 instance_state，若卖家有多个不同 state 的同 ID 物品，转账的是"最早添加的那个"
+- **测试**：
+  - `tests/services/test_inventory.py`：31 → 37 个测试（新增 6 个 state-based 测试 + 1 个 stack_size_max 测试）
+  - `tests/services/test_player_inventory_service.py`：3 → 8 个测试（新增 state 保留测试 + service 层 state-based 测试）
+  - 全量测试：**204 passed**
+- **遗留问题**：
+  - `MarketService` 仍待接入 `PlayerInventoryService` 的流转接口（`move_to_listing` / `move_from_listing` / `transfer_item`）
+
 <!-- 在此添加新条目 -->
