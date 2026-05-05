@@ -179,9 +179,8 @@ class Inventory:
         # 统一获取物品属性（支持对象或 dict）
         stackable = _get_attr(item, "stackable", False)
         stack_size_max = _get_attr(item, "stack_size_max", 1) if stackable else 1
-        # 防止无效 stack_size_max 导致死循环
         if stackable and (not isinstance(stack_size_max, int) or stack_size_max <= 0):
-            stack_size_max = 1
+            raise InvalidInputError(field="stack_size_max", value=stack_size_max)
 
         # 可堆叠物品：尝试合入既有槽位（需满足 item_id 相同且 instance_state 相同）
         if stackable:

@@ -103,6 +103,27 @@ def test_transfer_item_does_not_persist_partial_update_when_receiver_full() -> N
     assert persistence.save_players_calls == 0
 
 
+def test_transfer_item_leaves_state_unchanged_when_receiver_full() -> None:
+    full_inventory = [{"item_id": f"i_full_{i}", "count": 1} for i in range(50)]
+    items = {slot["item_id"]: make_item(slot["item_id"], stackable=False) for slot in full_inventory}
+    items["i_target"] = make_item("i_target", stackable=False)
+    repo = Repository(
+        players={
+            "p_from": make_player("p_from", [{"item_id": "i_target", "count": 1, "instance_state": {"enchant": "fire"}}]),
+            "p_to": make_player("p_to", full_inventory),
+        },
+        items=items,
+    )
+    service, persistence = make_service(repo)
+
+    with pytest.raises(InventoryFullError):
+        service.transfer_item("p_from", "p_to", "i_target", count=1)
+
+    assert repo.players["p_from"].inventory == [{"item_id": "i_target", "count": 1, "instance_state": {"enchant": "fire"}}]
+    assert repo.players["p_to"].inventory == full_inventory
+    assert persistence.save_players_calls == 0
+
+
 def test_transfer_item_preserves_instance_state() -> None:
     """转账时 instance_state 不应丢失"""
     repo = Repository(

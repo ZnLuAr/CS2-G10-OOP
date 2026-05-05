@@ -556,14 +556,35 @@ class TestDictItemSupport:
         with pytest.raises(AttributeError):
             slot.to_dict()
 
-    def test_stack_size_max_zero_or_negative_uses_default(self, inventory):
-        """stack_size_max <= 0 时不应导致死循环，应使用默认值 1"""
-        # stack_size_max = 0 的情况
-        item_zero = {"item_id": "i_zero", "name": "Zero Stack", "stackable": True, "stack_size_max": 0}
-        inventory.add(item_zero, count=1)
-        assert inventory.find("i_zero").count == 1
+    def test_stack_size_max_zero_raises(self, inventory):
+        """stack_size_max = 0 时应抛 InvalidInputError"""
+        item = {"item_id": "i_zero", "name": "Zero Stack", "stackable": True, "stack_size_max": 0}
 
-        # stack_size_max = -1 的情况
-        item_neg = {"item_id": "i_neg", "name": "Negative Stack", "stackable": True, "stack_size_max": -1}
-        inventory.add(item_neg, count=1)
-        assert inventory.find("i_neg").count == 1
+        with pytest.raises(InvalidInputError) as exc:
+            inventory.add(item, count=1)
+
+        assert exc.value.context["field"] == "stack_size_max"
+        assert exc.value.context["value"] == 0
+        assert inventory.find("i_zero") is None
+
+    def test_stack_size_max_negative_raises(self, inventory):
+        """stack_size_max < 0 时应抛 InvalidInputError"""
+        item = {"item_id": "i_neg", "name": "Negative Stack", "stackable": True, "stack_size_max": -1}
+
+        with pytest.raises(InvalidInputError) as exc:
+            inventory.add(item, count=1)
+
+        assert exc.value.context["field"] == "stack_size_max"
+        assert exc.value.context["value"] == -1
+        assert inventory.find("i_neg") is None
+
+    def test_stack_size_max_non_int_raises(self, inventory):
+        """stack_size_max 非 int 时应抛 InvalidInputError"""
+        item = {"item_id": "i_str", "name": "String Stack", "stackable": True, "stack_size_max": "5"}
+
+        with pytest.raises(InvalidInputError) as exc:
+            inventory.add(item, count=1)
+
+        assert exc.value.context["field"] == "stack_size_max"
+        assert exc.value.context["value"] == "5"
+        assert inventory.find("i_str") is None

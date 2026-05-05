@@ -283,14 +283,7 @@ class PlayerInventoryService:
             return
 
         to_inventory = self._build_inventory(to_player_id, to_player.inventory)
-        try:
-            to_inventory.add(item, count=count, instance_state=instance_state)
-        except InventoryFullError as e:
-            raise InventoryFullError(
-                player_id=to_player_id,
-                capacity=to_inventory.capacity,
-                context={"item_id": item_id, "count": count, **e.context}
-            ) from None
+        to_inventory.add(item, count=count, instance_state=instance_state)
 
         from_player.inventory = from_inventory.to_inventory_data()
         to_player.inventory = to_inventory.to_inventory_data()
