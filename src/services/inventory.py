@@ -10,9 +10,22 @@
 from __future__ import annotations
 
 from src.errors import InvalidInputError, ItemNotFoundError, InventoryFullError
-from src.structures.doubly_linked_list import DoublyLinkedList, Node
+from src.structures.doubly_linked_list import DoublyLinkedList
 
 __all__ = ["Inventory", "InventorySlot"]
+
+
+
+def _get_attr(item, attr: str, default=None):
+    if isinstance(item, dict):
+        return item.get(attr, default)
+    return getattr(item, attr, default)
+
+
+def _item_id(item) -> str:
+    if isinstance(item, dict):
+        return item["item_id"]
+    return item.item_id
 
 
 
@@ -42,9 +55,15 @@ class InventorySlot:
 
     def _item_id(self) -> str:
         """统一获取 item_id（支持 Item 对象或 dict）"""
-        if isinstance(self.item, dict):
-            return self.item["item_id"]
-        return self.item.item_id
+        return _item_id(self.item)
+
+    def get_display_name(self) -> str:
+        """获取用于 CLI 展示的物品名"""
+        return _get_attr(self.item, "name", self._item_id())
+
+    def get_rarity(self) -> str:
+        """获取用于 CLI 展示和排序的稀有度"""
+        return _get_attr(self.item, "rarity", "unknown")
 
 
 
@@ -109,7 +128,7 @@ class Inventory:
             return lst
 
         def _rarity_key(slot):
-            r = slot.item.rarity if hasattr(slot.item, "rarity") else slot.item.get("rarity", "")
+            r = slot.get_rarity()
             try:
                 return self.RARITY_ORDER.index(r)
             except ValueError:
@@ -141,8 +160,8 @@ class Inventory:
         remaining = count
 
         # 统一获取物品属性（支持对象或 dict）
-        stackable = self._get_attr(item, "stackable", False)
-        stack_size_max = self._get_attr(item, "stack_size_max", 1) if stackable else 1
+        stackable = _get_attr(item, "stackable", False)
+        stack_size_max = _get_attr(item, "stack_size_max", 1) if stackable else 1
 
         # 可堆叠物品：尝试合入既有槽位（需满足 item_id 相同且 instance_state 相同）
         if stackable:
@@ -274,7 +293,7 @@ class Inventory:
     def _can_merge(self, slot: InventorySlot, item, instance_state, stack_size_max: int) -> bool:
         """判断槽位是否可以合并新物品"""
         # item_id 必须相同
-        if slot._item_id() != self._item_id(item):
+        if slot._item_id() != _item_id(item):
             return False
         # instance_state 必须相同
         slot_state = slot.instance_state or {}
@@ -283,20 +302,6 @@ class Inventory:
             return False
         # 还有空间
         return slot.count < stack_size_max
-
-
-    def _item_id(self, item) -> str:
-        """统一获取 item_id"""
-        if isinstance(item, dict):
-            return item["item_id"]
-        return item.item_id
-
-
-    def _get_attr(self, item, attr: str, default=None):
-        """统一获取物品属性（支持对象或 dict）"""
-        if isinstance(item, dict):
-            return item.get(attr, default)
-        return getattr(item, attr, default)
 
 
     def _force_add_slot(self, item, count: int, instance_state: dict | None) -> None:

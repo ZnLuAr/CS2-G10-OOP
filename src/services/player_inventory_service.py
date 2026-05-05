@@ -19,7 +19,6 @@ from src.errors import (
     ItemNotFoundError,
     PlayerNotFoundError,
 )
-from src.services.logger import log
 from src.services.inventory import Inventory
 from src.services.persistence import Persistence, Repository
 
@@ -227,27 +226,32 @@ class PlayerInventoryService:
             InvalidInputError: 数量不足
             InventoryFullError: 买家背包已满
         """
-        # 卖家移除
-        self.remove_item(from_player_id, item_id, count)
-        # 买家添加
+        if count <= 0:
+            raise InvalidInputError(field="count", value=count)
+
+        from_player = self._get_player_or_raise(from_player_id)
+        to_player = self._get_player_or_raise(to_player_id)
+        item = self._get_item_or_raise(item_id)
+
+        from_inventory = self._build_inventory(from_player_id, from_player.inventory)
+        from_inventory.remove(item_id, count=count)
+
+        if from_player_id == to_player_id:
+            return
+
+        to_inventory = self._build_inventory(to_player_id, to_player.inventory)
         try:
-            self.add_item(to_player_id, item_id, count)
-        except InventoryFullError:
-            # 回滚：尝试把物品还回卖家
-            try:
-                self.add_item(from_player_id, item_id, count)
-            except InventoryFullError:
-                # 极端情况：回滚也失败，记录错误并继续抛出
-                log.error(
-                    "player_inventory_service",
-                    "rollback_failed",
-                    from_player_id=from_player_id,
-                    to_player_id=to_player_id,
-                    item_id=item_id,
-                    count=count,
-                    message="物品转移失败且回滚到卖家也失败，数据可能不一致"
-                )
-            raise
+            to_inventory.add(item, count=count)
+        except InventoryFullError as e:
+            raise InventoryFullError(
+                player_id=to_player_id,
+                capacity=to_inventory.capacity,
+                context={"item_id": item_id, "count": count, **e.context}
+            ) from None
+
+        from_player.inventory = from_inventory.to_inventory_data()
+        to_player.inventory = to_inventory.to_inventory_data()
+        self.persistence.save_players(self.repo)
 
 
     # ========== 内部方法 ==========
@@ -273,5 +277,5 @@ class PlayerInventoryService:
         return Inventory.from_inventory_data(
             owner_id=player_id,
             data=data,
-            item_lookup=lambda iid: self.repo.items.get(iid, {})
+            item_lookup=lambda iid: self.repo.items[iid]
         )

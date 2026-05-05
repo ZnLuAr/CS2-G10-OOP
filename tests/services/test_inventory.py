@@ -461,3 +461,20 @@ class TestDictItemSupport:
         assert inventory.used() == 2
         assert inventory.find("i_001") is not None
         assert inventory.find("i_002") is not None
+
+    def test_missing_dict_item_id_is_not_silently_serialized(self):
+        """dict 物品缺少 item_id 时不应静默序列化为 None"""
+        slot = InventorySlot({"name": "Broken Item"}, count=1)
+
+        with pytest.raises(KeyError):
+            slot.to_dict()
+
+    def test_missing_object_item_id_is_not_silently_serialized(self):
+        """对象物品缺少 item_id 时不应静默序列化为 None"""
+        class BrokenItem:
+            name = "Broken Item"
+
+        slot = InventorySlot(BrokenItem(), count=1)
+
+        with pytest.raises(AttributeError):
+            slot.to_dict()

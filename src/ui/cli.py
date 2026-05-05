@@ -376,10 +376,7 @@ class TradingCLI:
             print("  （空）")
         else:
             for i, slot in enumerate(sorted_slots, 1):
-                item = slot.item
-                name = item.get('name', slot._item_id()) if isinstance(item, dict) else getattr(item, 'name', slot._item_id())
-                rarity = item.get('rarity', 'unknown') if isinstance(item, dict) else getattr(item, 'rarity', 'unknown')
-                print(f"  {i}. {name} [{rarity}] x{slot.count}")
+                print(f"  {i}. {slot.get_display_name()} [{slot.get_rarity()}] x{slot.count}")
         print(f"-" * 40)
         info = self.inventory_service.get_capacity_info(pid)
         print(f"  已用槽位：{info['used']} / {info['capacity']}")
@@ -612,10 +609,7 @@ class TradingCLI:
             print("  （空）")
         else:
             for i, slot in enumerate(slots, 1):
-                item = slot.item
-                name = item.get('name', slot._item_id()) if isinstance(item, dict) else getattr(item, 'name', slot._item_id())
-                rarity = item.get('rarity', 'unknown') if isinstance(item, dict) else getattr(item, 'rarity', 'unknown')
-                print(f"  {i}. {name} [{rarity}] x{slot.count}")
+                print(f"  {i}. {slot.get_display_name()} [{slot.get_rarity()}] x{slot.count}")
         print(f"-" * 40)
         info = self.inventory_service.get_capacity_info(pid)
         print(f"  已用槽位：{info['used']} / {info['capacity']}")
