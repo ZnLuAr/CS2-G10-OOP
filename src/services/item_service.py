@@ -177,12 +177,7 @@ class ItemService:
             "stats": stats,
         }
 
-        try:
-            item = Item.from_dict(preview_payload)
-        except SerializationError:
-            raise
-        except Exception as e:
-            raise SerializationError(entity="Item", raw=preview_payload) from e
+        item = Item.from_dict(preview_payload)
 
         item.item_id = self.persistence.next_item_id()
         self.repo.items[item.item_id] = item

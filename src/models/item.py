@@ -101,6 +101,8 @@ class Item(ABC):
         self.rarity = rarity
         self.base_value = base_value
         self.description = description
+        self.level_req = 0
+        self.class_req: list[str] = []
 
 
     @abstractmethod

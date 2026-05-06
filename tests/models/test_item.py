@@ -359,6 +359,20 @@ class TestMixinProperties:
         assert isinstance(item, Stackable)
         assert item.stack_size_max == 99
 
+    def test_all_items_have_usage_requirement_defaults(self):
+        """所有 Item 对象都有使用门槛属性，避免动态属性不一致"""
+        data = {
+            "item_id": "i_misc",
+            "name": "测试杂项",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 10},
+        }
+        item = Item.from_dict(data)
+        assert item.level_req == 0
+        assert item.class_req == []
+
 
 # ========== 序列化/反序列化往返测试 ==========
 

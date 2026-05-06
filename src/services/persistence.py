@@ -301,10 +301,7 @@ class Persistence:
         for rec in records:
             if not isinstance(rec, dict) or "item_id" not in rec:
                 raise SerializationError(entity="Item", raw=rec)
-            try:
-                item = Item.from_dict(rec)
-            except Exception as e:
-                raise SerializationError(entity="Item", raw=rec) from e
+            item = Item.from_dict(rec)
             result[item.item_id] = item
         return result
 

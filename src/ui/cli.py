@@ -561,13 +561,13 @@ class TradingCLI:
         """显示物品列表"""
         items = self.app.item_service.list_all()
         print(f"\n共有 {len(items)} 件物品：")
-        print("-" * 50)
-        print(f"{'ID':<10} {'分类':<20} {'稀有度':<8}")
-        print("-" * 50)
+        print("-" * 62)
+        print(f"{'ID':<10} {'分类':<20} {'稀有度':<8} {'基础价值':>8}")
+        print("-" * 62)
         for item in items:
             cat = item.category
             rarity = item.rarity
-            print(f"{item.item_id:<10} {cat:<20} {rarity:<8}")
+            print(f"{item.item_id:<10} {cat:<20} {rarity:<8} {item.base_value:>8}")
 
 
     def _show_item_detail(self) -> None:
