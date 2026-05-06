@@ -42,10 +42,10 @@ def test_by_item_returns_transactions(service):
 
 
 def test_by_category_returns_transactions(service):
-    category = service.repo.items["i_001"]["category"].split(".")[0]
+    category = service.repo.items["i_001"].category.split(".")[0]
     result = service.by_category(category)
     assert result
-    assert all(service.repo.items[t.item_id]["category"].startswith(category) for t in result)
+    assert all(service.repo.items[t.item_id].category.startswith(category) for t in result)
 
 
 def test_price_stats(service):
@@ -55,7 +55,7 @@ def test_price_stats(service):
 
 
 def test_price_stats_by_category(service):
-    category = service.repo.items["i_001"]["category"].split(".")[0]
+    category = service.repo.items["i_001"].category.split(".")[0]
     stats = service.price_stats_by_category(category)
     assert stats["count"] >= 1
     assert stats["min"] <= stats["max"]

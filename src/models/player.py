@@ -11,7 +11,9 @@ from dataclasses import dataclass, field
 
 __all__ = ["Player"]
 
-from src.errors import InsufficientGoldError, InvalidInputError
+# from src.errors import InsufficientGoldError, InvalidInputError
+from ..errors.validation import InvalidInputError
+from ..errors.trade import InsufficientGoldError
 
 
 @dataclass
@@ -26,13 +28,13 @@ class Player:
 
     def add_gold(self, amount: int) -> None:
         if amount < 0:
-            raise InvalidInputError("The number of gold(beryl) can not be negative")
+            raise InvalidInputError("The number of gold(beryl) can not be negative", value=amount)
         else:
             self.gold += amount
 
     def spend_gold(self, amount: int) -> None:
         if amount < 0:
-            raise InvalidInputError("The number of gold(beryl) can not be negative")
+            raise InvalidInputError("The number of gold(beryl) can not be negative", value=amount)
         else:
             if self.gold < amount:
                 raise InsufficientGoldError
@@ -40,10 +42,10 @@ class Player:
                 self.gold -= amount
 
     def can_be_deleted(self) -> bool:
-        if self.inventory:  # It still has items in bags :)
+        if self.inventory:  # It still has items in bags
             return False
         else:
-            return  True
+            return True
 
 
     @classmethod

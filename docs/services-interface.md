@@ -233,7 +233,7 @@ class ItemService:
         """
 
     def list_all(self, category_prefix: str | None = None) -> list[Item]:
-        """# pure  按 category 前缀筛选（如 'weapon' 或 'weapon.sword'）"""
+        """# pure  不传参数时返回全部；传入分类路径时委托 items_in_category。"""
 
     def browse_catalog(self, node_key: str = "root") -> CatalogNode:
         """# pure  返回分类树节点，UI 递归向下浏览
@@ -241,18 +241,23 @@ class ItemService:
         """
 
     def items_in_category(self, category: str) -> list[Item]:
-        """# pure  返回某叶子分类下的所有物品（递归遍历）"""
+        """# pure  返回指定分类路径下的所有物品；支持大类前缀（如 weapon）和叶子分类（如 weapon.sword）。
+        Raises: InvalidInputError (category 不存在于 CatalogTree)
+        """
 
     # ===== 创建 / 删除（管理员）=====
     def create_item(self, payload: dict) -> Item:
         """根据 payload['category'] 实例化对应 Item 子类。# persists # logs
+        要求 category 是 CatalogTree 中存在的叶子分类；name 长度 1-40；description 长度 0-200；base_value 为非负 int。
+        创建前先用 preview payload 校验 stats，校验失败不分配正式 item_id、不写入 repo、不持久化。
         Raises:
-            InvalidInputError: 字段缺失或非法
-            SerializationError: 子类构造失败
+            InvalidInputError: 字段缺失 / 非法 rarity / 非法 base_value / 非叶或不存在的 category
+            SerializationError: stats 缺失子类必需字段或类型不兼容，导致子类构造失败
         """
 
     def delete_item(self, item_id: str) -> None:
         """# persists # logs
+        删除前扫描玩家背包和 active 挂单；任一引用存在则拒绝删除。
         Raises:
             ItemNotFoundError
             BusinessRuleError: 仍有玩家持有 / 仍有活跃挂单

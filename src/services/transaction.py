@@ -52,9 +52,15 @@ class TransactionService:
 
 
     def by_category(self, category_prefix: str) -> list[Transaction]:
+        def _item_in_category(item_id: str) -> bool:
+            item = self.repo.items.get(item_id)
+            if item is None:
+                return False
+            return item.category.startswith(category_prefix)
+
         txns = [
             t for t in self.repo.transactions
-            if self.repo.items.get(t.item_id, {}).get("category", "").startswith(category_prefix)
+            if _item_in_category(t.item_id)
         ]
         return sorted(txns, key=lambda t: t.completed_at, reverse=True)
 

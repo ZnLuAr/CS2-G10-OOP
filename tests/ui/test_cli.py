@@ -185,6 +185,61 @@ class TestSubMenu:
         out = capsys.readouterr().out
         assert len(out) > 0
 
+    def test_item_category_browse_display(self, fresh_cli, mock_input, capsys):
+        """按分类浏览物品"""
+        mock_input("2", "4", "weapon", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "分类目录" in out
+        assert "weapon" in out
+        assert "功能待 CatalogTree 实现" not in out
+
+    def test_item_create_display(self, fresh_cli, mock_input, capsys):
+        """创建物品成功路径"""
+        mock_input(
+            "2", "5",
+            "CLI测试杂项", "misc", "common", "1", "测试描述", "99", "1",
+            "", "b", "", "6"
+        )
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "已创建物品" in out
+        assert any(item.name == "CLI测试杂项" for item in fresh_cli.repo.items.values())
+
+    def test_item_delete_display(self, fresh_cli, mock_input, capsys):
+        """删除物品成功路径"""
+        item = fresh_cli.app.item_service.create_item({
+            "name": "CLI待删除",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        mock_input("2", "6", item.item_id, "y", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "已删除物品" in out
+        assert item.item_id not in fresh_cli.repo.items
+
+    def test_item_delete_referenced_display_business_error(self, fresh_cli, mock_input, capsys):
+        """删除被引用物品时显示业务错误"""
+        referenced_item_id = None
+        for player in fresh_cli.repo.players.values():
+            if player.inventory:
+                referenced_item_id = player.inventory[0]["item_id"]
+                break
+        if referenced_item_id is None:
+            pytest.skip("No referenced item in seed data")
+
+        mock_input("2", "6", referenced_item_id, "y", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "业务错误" in out
+
     def test_active_listings_display(self, fresh_cli, mock_input, capsys):
         """查看活跃挂单"""
         mock_input("4", "3", "", "b", "", "6")
@@ -370,7 +425,7 @@ class TestDataDisplay:
 
     def test_item_transactions_by_category_empty(self, fresh_cli, mock_input, capsys):
         """按分类查看物品成交历史（无数据）"""
-        first_category = list(fresh_cli.repo.items.values())[0]["category"].split(".")[0]
+        first_category = list(fresh_cli.repo.items.values())[0].category.split(".")[0]
         mock_input("5", "2", "2", first_category, "", "b", "", "6")
         fresh_cli.run()
 
@@ -415,7 +470,7 @@ class TestDataDisplay:
 
     def test_price_stats_by_category_empty(self, fresh_cli, mock_input, capsys):
         """按分类查看价格统计（无数据）"""
-        first_category = list(fresh_cli.repo.items.values())[0]["category"].split(".")[0]
+        first_category = list(fresh_cli.repo.items.values())[0].category.split(".")[0]
         mock_input("5", "3", "2", first_category, "", "b", "", "6")
         fresh_cli.run()
 
@@ -427,7 +482,7 @@ class TestDataDisplay:
         from src.models import Transaction
 
         first_iid = list(fresh_cli.repo.items.keys())[0]
-        first_category = fresh_cli.repo.items[first_iid]["category"].split(".")[0]
+        first_category = fresh_cli.repo.items[first_iid].category.split(".")[0]
         fresh_cli.repo.transactions.append(
             Transaction(
                 transaction_id="t_920001",

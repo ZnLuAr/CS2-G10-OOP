@@ -23,7 +23,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable
 
-from src.errors import InvalidInputError, TradingSystemError
+from src.errors import BusinessRuleError, InvalidInputError, TradingSystemError
 
 if TYPE_CHECKING:
     from src.app import App
@@ -188,13 +188,15 @@ class TradingCLI:
         print("  2. 物品详情")
         print("  3. 按 ID 查询")
         print("  4. 按分类浏览")
+        print("  5. 创建物品（管理员）")
+        print("  6. 删除物品（管理员）")
         print("-" * 40)
         print("  b. 返回主菜单")
         print("=" * 40)
 
         return self._prompt_choice(
             "请输入选项",
-            valid_choices={"1", "2", "3", "4", "b", "B"}
+            valid_choices={"1", "2", "3", "4", "5", "6", "b", "B"}
         )
 
 
@@ -338,7 +340,11 @@ class TradingCLI:
         elif choice == "3":
             self._query_item_by_id()
         elif choice == "4":
-            print("\n[按分类浏览] 功能待 CatalogTree 实现")
+            self._browse_items_by_category()
+        elif choice == "5":
+            self._create_item()
+        elif choice == "6":
+            self._delete_item()
         self._pause()
 
 
@@ -403,8 +409,9 @@ class TradingCLI:
 
         try:
             self.inventory_service.add_item(pid, item_id, count)
-            item = self.repo.items.get(item_id, {})
-            print(f"[成功] 已向背包添加 {count} 个 {item.get('name', item_id)}")
+            item = self.repo.items.get(item_id)
+            item_name = item.name if item else item_id
+            print(f"[成功] 已向背包添加 {count} 个 {item_name}")
         except Exception as e:
             print(f"[提示] {getattr(e, 'message', str(e))}")
 
@@ -554,29 +561,33 @@ class TradingCLI:
         """显示物品列表"""
         items = self.app.item_service.list_all()
         print(f"\n共有 {len(items)} 件物品：")
-        print("-" * 50)
-        print(f"{'ID':<10} {'分类':<20} {'稀有度':<8}")
-        print("-" * 50)
+        print("-" * 62)
+        print(f"{'ID':<10} {'分类':<20} {'稀有度':<8} {'基础价值':>8}")
+        print("-" * 62)
         for item in items:
-            cat = item.get('category', 'unknown')
-            rarity = item.get('rarity', 'unknown')
-            print(f"{item['item_id']:<10} {cat:<20} {rarity:<8}")
+            cat = item.category
+            rarity = item.rarity
+            print(f"{item.item_id:<10} {cat:<20} {rarity:<8} {item.base_value:>8}")
 
 
     def _show_item_detail(self) -> None:
         """显示物品详情"""
         iid = input("请输入物品 ID：").strip()
-        item = self.repo.items.get(iid)
-        if not item:
+        try:
+            item = self.app.item_service.get_by_id(iid)
+        except Exception:
             print(f"[提示] 物品 {iid} 不存在")
             return
 
         print(f"\n{'='*40}")
-        print(f"物品：{item.get('name', 'Unknown')} ({iid})")
+        print(f"物品：{item.name} ({iid})")
         print(f"{'='*40}")
-        for k, v in sorted(item.items()):
-            if k != 'item_id':
-                print(f"  {k}: {v}")
+        print(f"  分类：{item.category}")
+        print(f"  稀有度：{item.rarity}")
+        print(f"  基础价值：{item.base_value}")
+        if item.description:
+            print(f"  描述：{item.description}")
+        print(f"  {item.describe()}")
         print(f"{'='*40}")
 
 
@@ -585,11 +596,193 @@ class TradingCLI:
         iid = input("请输入物品 ID：").strip()
         try:
             item = self.app.item_service.get_by_id(iid)
-            name = item.get('name', 'Unknown')
-            cat = item.get('category', 'unknown')
-            print(f"\n找到物品：{name} (分类：{cat})")
+            print(f"\n找到物品：{item.name} (分类：{item.category})")
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
+
+
+    def _browse_items_by_category(self) -> None:
+        """按 CatalogTree 分类浏览物品"""
+        root = self.app.item_service.browse_catalog("root")
+        print("\n分类目录：")
+        self._print_catalog_node(root)
+
+        category = input("请输入分类路径（如 weapon / weapon.sword / misc，留空=root）：").strip() or "root"
+        try:
+            items = self.app.item_service.items_in_category(category)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+
+        print(f"\n分类 {category} 下共有 {len(items)} 件物品：")
+        print("-" * 60)
+        if not items:
+            print("  暂无物品")
+            return
+        for item in items[:20]:
+            print(f"  {item.item_id:<10} {item.name:<16} {item.category:<20} {item.rarity}")
+        if len(items) > 20:
+            print(f"  ... 还有 {len(items) - 20} 件未显示")
+
+    def _create_item(self) -> None:
+        """创建物品（管理员）"""
+        name = input("物品名称：").strip()
+        category = input("分类（如 weapon.sword / misc）：").strip()
+        rarity = input("稀有度（common/uncommon/rare/epic/legendary）：").strip()
+        base_value_str = input("基础价值：").strip()
+        description = input("描述（可留空）：").strip()
+
+        try:
+            base_value = int(base_value_str)
+        except ValueError:
+            raise InvalidInputError(field="base_value", value=base_value_str)
+
+        stats = self._prompt_item_stats(category)
+        payload = {
+            "name": name,
+            "category": category,
+            "rarity": rarity,
+            "base_value": base_value,
+            "description": description,
+            "stats": stats,
+        }
+        item = self.app.item_service.create_item(payload)
+        print(f"[成功] 已创建物品：{item.name} ({item.item_id})")
+
+    def _delete_item(self) -> None:
+        """删除物品（管理员）"""
+        item_id = input("请输入要删除的物品 ID：").strip()
+        try:
+            item = self.app.item_service.get_by_id(item_id)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+
+        print(f"\n待删除物品：{item.describe()}")
+        confirm = input(f"确认删除 {item.name} ({item.item_id})？此操作不可撤销 (y/n)：").strip().lower()
+        if confirm != "y":
+            print("已取消")
+            return
+
+        try:
+            self.app.item_service.delete_item(item_id)
+            print(f"[成功] 已删除物品 {item_id}")
+        except BusinessRuleError as e:
+            print(f"[业务错误] {e.message}")
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+
+    def _print_catalog_node(self, node, depth: int = 0, path: str = "") -> None:
+        current_path = node.key if node.key != "root" else "root"
+        if path and node.key != "root":
+            current_path = f"{path}.{node.key}" if path != "root" else node.key
+        indent = "  " * depth
+        suffix = f" ({current_path})" if node.key != "root" else ""
+        print(f"{indent}- {node.label}{suffix}")
+        for child in node.children:
+            self._print_catalog_node(child, depth + 1, current_path)
+
+    def _prompt_item_stats(self, category: str) -> dict:
+        if category.startswith("weapon."):
+            return {
+                "attack": self._prompt_int("攻击"),
+                "attack_speed": self._prompt_float("攻速"),
+                "durability_max": self._prompt_int("最大耐久"),
+                "durability": self._prompt_optional_int("当前耐久", None),
+                "equipped": False,
+                "slot": "weapon",
+                "level_req": self._prompt_optional_int("等级要求", 0),
+                "class_req": self._prompt_class_req(),
+            }
+        if category.startswith("tool."):
+            return {
+                "efficiency": self._prompt_float("效率"),
+                "tier": self._prompt_int("工具等级"),
+                "durability_max": self._prompt_int("最大耐久"),
+                "durability": self._prompt_optional_int("当前耐久", None),
+                "level_req": self._prompt_optional_int("等级要求", 0),
+                "class_req": self._prompt_class_req(),
+            }
+        if category.startswith("armor."):
+            slot = category.split(".", 1)[1]
+            return {
+                "defense": self._prompt_int("防御"),
+                "magic_resist": self._prompt_int("魔抗"),
+                "durability_max": self._prompt_int("最大耐久"),
+                "durability": self._prompt_optional_int("当前耐久", None),
+                "equipped": False,
+                "slot": slot,
+                "level_req": self._prompt_optional_int("等级要求", 0),
+                "class_req": self._prompt_class_req(),
+            }
+        if category == "consumable.potion":
+            return {
+                "effect": input("效果：").strip(),
+                "power": self._prompt_int("效果强度"),
+                "duration": self._prompt_optional_int("持续时间", 0),
+                "stack_size_max": self._prompt_int("最大堆叠"),
+                "count": self._prompt_optional_int("默认数量", 1),
+            }
+        if category == "consumable.food":
+            stats = self._prompt_consumable_stats()
+            stats["nutrition"] = self._prompt_optional_int("营养值", 0)
+            return stats
+        if category == "consumable.magic":
+            stats = self._prompt_consumable_stats()
+            stats["mana_cost"] = self._prompt_optional_int("魔力消耗", 0)
+            return stats
+        if category == "consumable.material":
+            return {
+                "effect": input("效果（默认 none）：").strip() or "none",
+                "power": self._prompt_optional_int("效果强度", 0),
+                "duration": self._prompt_optional_int("持续时间", 0),
+                "stack_size_max": self._prompt_int("最大堆叠"),
+                "count": self._prompt_optional_int("默认数量", 1),
+            }
+        if category == "misc":
+            return {
+                "stack_size_max": self._prompt_int("最大堆叠"),
+                "count": self._prompt_optional_int("默认数量", 1),
+            }
+        return {}
+
+    def _prompt_consumable_stats(self) -> dict:
+        return {
+            "effect": input("效果：").strip(),
+            "power": self._prompt_int("效果强度"),
+            "duration": self._prompt_optional_int("持续时间", 0),
+            "stack_size_max": self._prompt_int("最大堆叠"),
+            "count": self._prompt_optional_int("默认数量", 1),
+        }
+
+    def _prompt_class_req(self) -> list[str]:
+        raw = input("职业要求（逗号分隔，可留空）：").strip()
+        if not raw:
+            return []
+        return [part.strip() for part in raw.split(",") if part.strip()]
+
+    def _prompt_int(self, label: str) -> int:
+        raw = input(f"{label}：").strip()
+        try:
+            return int(raw)
+        except ValueError:
+            raise InvalidInputError(field=label, value=raw)
+
+    def _prompt_optional_int(self, label: str, default: int | None) -> int | None:
+        raw = input(f"{label}（可留空）：").strip()
+        if not raw:
+            return default
+        try:
+            return int(raw)
+        except ValueError:
+            raise InvalidInputError(field=label, value=raw)
+
+    def _prompt_float(self, label: str) -> float:
+        raw = input(f"{label}：").strip()
+        try:
+            return float(raw)
+        except ValueError:
+            raise InvalidInputError(field=label, value=raw)
 
 
     def _show_inventory(self) -> None:
@@ -623,10 +816,10 @@ class TradingCLI:
         print(f"{'挂单ID':<10} {'卖家':<10} {'物品':<10} {'数量':>4} {'单价':>8}")
         print("-" * 60)
         for l in active[:20]:
-            seller = self.repo.players.get(l.seller_id, None)
+            seller = self.repo.players.get(l.seller_id)
             seller_name = seller.name if seller else l.seller_id[:8]
-            item = self.repo.items.get(l.item_id, {})
-            item_name = item.get('name', l.item_id[:8])
+            item = self.repo.items.get(l.item_id)
+            item_name = item.name if item else l.item_id[:8]
             print(f"{l.listing_id:<10} {seller_name:<10} {item_name:<10} {l.count:>4} {l.price:>8}")
         if len(active) > 20:
             print(f"  ... 还有 {len(active)-20} 个挂单未显示")
@@ -675,8 +868,8 @@ class TradingCLI:
         matches = self.app.market_service.query_by_price_range(min_p, max_p)
         print(f"\n价格区间 [{min_p}, {max_p}] 内有 {len(matches)} 个挂单：")
         for l in sorted(matches, key=lambda x: x.price)[:10]:
-            item = self.repo.items.get(l.item_id, {})
-            name = item.get('name', l.item_id[:8])
+            item = self.repo.items.get(l.item_id)
+            name = item.name if item else l.item_id[:8]
             print(f"  {l.listing_id}: {name} x{l.count} @ {l.price}")
         if len(matches) > 10:
             print(f"  ... 还有 {len(matches)-10} 个")
@@ -699,8 +892,8 @@ class TradingCLI:
 
         print(f"\n排序后前 10 个挂单：")
         for l in sorted_list[:10]:
-            item = self.repo.items.get(l.item_id, {})
-            name = item.get('name', l.item_id[:8])
+            item = self.repo.items.get(l.item_id)
+            name = item.name if item else l.item_id[:8]
             print(f"  {l.listing_id}: {name} @ {l.price}")
 
 
@@ -718,8 +911,8 @@ class TradingCLI:
         for t in shown:
             role = "买" if t.buyer_id == pid else "卖"
             other = t.seller_id if t.buyer_id == pid else t.buyer_id
-            item = self.repo.items.get(t.item_id, {})
-            item_name = item.get("name", t.item_id)
+            item = self.repo.items.get(t.item_id)
+            item_name = item.name if item else t.item_id
             print(
                 f"  {t.completed_at} [{role}] {item_name}({t.item_id}) "
                 f"x{t.count} @ {t.price} = {t.total} → {other}"
@@ -735,7 +928,7 @@ class TradingCLI:
             item_id = input("请输入 item_id：").strip()
             item = self.app.item_service.get_by_id(item_id)
             txns = self.app.transaction_service.by_item(item_id)
-            title = f"物品成交历史：{item.get('name', item_id)} ({item_id})"
+            title = f"物品成交历史：{item.name} ({item_id})"
         else:
             category = input("请输入类型/分类（如 weapon / weapon.sword / misc）：").strip()
             txns = self.app.transaction_service.by_category(category)
@@ -748,8 +941,8 @@ class TradingCLI:
             return
         shown = txns[:20]
         for t in shown:
-            item = self.repo.items.get(t.item_id, {})
-            item_name = item.get("name", t.item_id)
+            item = self.repo.items.get(t.item_id)
+            item_name = item.name if item else t.item_id
             print(
                 f"  {t.completed_at} {item_name}({t.item_id}) "
                 f"买家={t.buyer_id} 卖家={t.seller_id} x{t.count} @ {t.price} = {t.total}"
@@ -766,7 +959,7 @@ class TradingCLI:
                 item_id = input("请输入 item_id：").strip()
                 item = self.app.item_service.get_by_id(item_id)
                 stats = self.app.transaction_service.price_stats(item_id)
-                label = f"{item.get('name', item_id)} ({item_id})"
+                label = f"{item.name} ({item_id})"
             else:
                 category = input("请输入类型/分类（如 weapon / weapon.sword / misc）：").strip()
                 stats = self.app.transaction_service.price_stats_by_category(category)

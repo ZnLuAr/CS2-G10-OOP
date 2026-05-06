@@ -6,15 +6,42 @@
 - ``listing.py``     Listing 市场挂单
 - ``transaction.py`` Transaction 成交记录
 - ``item.py``        Item 抽象基类及 Weapon / Tool / Armor / Consumable / Misc 子类
-                     ⚠️ 待 JIAFENG YE 实现，目前 Persistence 暂以 dict 承接 Item 数据
 - ``inventory.py``   Inventory 背包（双向链表）
-                     ⚠️ 待 XINGZHOU PENG 实现
 
 字段定义见 docs/data-design.md。
 """
 
 from __future__ import annotations
 
+from .item import (
+    Armor,
+    Axe,
+    Boots,
+    Bow,
+    Chestplate,
+    Consumable,
+    Durable,
+    Equippable,
+    Food,
+    Greaves,
+    Halberd,
+    Hammer,
+    Helmet,
+    Hoe,
+    Item,
+    Magic,
+    Material,
+    Misc,
+    Pickaxe,
+    Potion,
+    Shield,
+    Shovel,
+    Spear,
+    Stackable,
+    Sword,
+    Tool,
+    Weapon,
+)
 from .listing import (
     STATUS_ACTIVE,
     STATUS_CANCELLED,
@@ -32,4 +59,32 @@ __all__ = [
     "STATUS_SOLD",
     "STATUS_CANCELLED",
     "Transaction",
+    # Item models
+    "Item",
+    "Durable",
+    "Equippable",
+    "Stackable",
+    "Weapon",
+    "Sword",
+    "Bow",
+    "Spear",
+    "Hammer",
+    "Halberd",
+    "Tool",
+    "Axe",
+    "Pickaxe",
+    "Shovel",
+    "Hoe",
+    "Armor",
+    "Helmet",
+    "Chestplate",
+    "Greaves",
+    "Boots",
+    "Shield",
+    "Consumable",
+    "Potion",
+    "Food",
+    "Magic",
+    "Material",
+    "Misc",
 ]
