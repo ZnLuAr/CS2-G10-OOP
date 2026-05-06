@@ -91,12 +91,13 @@ class TestLoadAll:
         for l in repo.listings.values():
             assert isinstance(l, Listing)
 
-    def test_items_remain_dicts_pending_model(self, fresh_persistence):
-        # Item 模型未实现，Persistence 暂保留 dict
+    def test_items_are_item_instances(self, fresh_persistence):
+        # 验证加载 Item 对象
+        from src.models import Item
         repo = fresh_persistence.load_all()
         for it in repo.items.values():
-            assert isinstance(it, dict)
-            assert "item_id" in it and "category" in it
+            assert isinstance(it, Item)
+            assert hasattr(it, "item_id") and hasattr(it, "category")
 
 
 

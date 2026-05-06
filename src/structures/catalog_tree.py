@@ -11,6 +11,8 @@ from typing import Any
 __all__ = ["CatalogNode", "CatalogTree"]
 
 
+
+
 @dataclass
 class CatalogNode:
     """分类目录节点
@@ -30,6 +32,7 @@ class CatalogNode:
         """是否为叶子节点（无子节点）"""
         return not self.children
 
+
     def find_child(self, key: str) -> "CatalogNode | None":
         """在当前节点的直接子节点中查找"""
         for child in self.children:
@@ -37,15 +40,16 @@ class CatalogNode:
                 return child
         return None
 
+
     def to_dict(self) -> dict[str, Any]:
         """序列化为 catalog.json 节点格式"""
-        result: dict[str, Any] = {
+        return {
             "key": self.key,
             "label": self.label,
+            "children": [child.to_dict() for child in self.children],
         }
-        if self.children:
-            result["children"] = [child.to_dict() for child in self.children]
-        return result
+
+
 
 
 class CatalogTree:
@@ -57,9 +61,11 @@ class CatalogTree:
     def __init__(self, root: CatalogNode) -> None:
         self.root = root
 
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "CatalogTree":
-        """从 catalog.json 格式构造树
+        """
+        从 catalog.json 格式构造树
 
         Args:
             data: catalog.json 内容，含 "root" 键或直接是 root 节点
@@ -71,20 +77,31 @@ class CatalogTree:
         root = cls._build_node(root_data)
         return cls(root)
 
+
     @classmethod
     def _build_node(cls, data: dict[str, Any]) -> CatalogNode:
         """递归构造 CatalogNode"""
+        if not isinstance(data, dict):
+            raise ValueError(f"CatalogNode data must be dict, got {type(data).__name__}")
+        if "key" not in data or "label" not in data:
+            raise ValueError(f"CatalogNode missing required fields: {data!r}")
         children_data = data.get("children", [])
-        children = [cls._build_node(c) for c in children_data]
+        if not isinstance(children_data, list):
+            raise ValueError(f"CatalogNode children must be list: {data!r}")
+        if not all(isinstance(child, dict) for child in children_data):
+            raise ValueError(f"CatalogNode children must contain only dicts: {data!r}")
+        children = [cls._build_node(child) for child in children_data]
         return CatalogNode(
             key=data["key"],
             label=data["label"],
             children=children,
         )
 
+
     def find_node(self, key: str) -> CatalogNode | None:
         """按 key 搜索任意节点（深度优先）"""
         return self._find_node_recursive(self.root, key)
+
 
     def _find_node_recursive(self, node: CatalogNode, key: str) -> CatalogNode | None:
         """递归查找节点"""
@@ -97,7 +114,8 @@ class CatalogTree:
         return None
 
     def find_by_path(self, path: str) -> CatalogNode | None:
-        """按根到叶路径逐级匹配
+        """
+        按根到叶路径逐级匹配
 
         Args:
             path: 如 "weapon.sword"、"misc"
@@ -123,8 +141,10 @@ class CatalogTree:
             current = child
         return current
 
+
     def get_leaf_categories(self) -> list[str]:
-        """获取所有叶子分类的完整路径
+        """
+        获取所有叶子分类的完整路径
 
         Returns:
             形如 ["weapon.sword", "tool.axe", "misc"] 的列表
@@ -132,6 +152,7 @@ class CatalogTree:
         leaves: list[str] = []
         self._collect_leaves(self.root, [], leaves)
         return leaves
+
 
     def _collect_leaves(
         self, node: CatalogNode, path_parts: list[str], result: list[str]
@@ -145,6 +166,7 @@ class CatalogTree:
         else:
             for child in node.children:
                 self._collect_leaves(child, current_path, result)
+
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为 catalog.json 格式"""

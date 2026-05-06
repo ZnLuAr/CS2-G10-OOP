@@ -505,4 +505,76 @@
 - **遗留问题**：
   - `MarketService` 仍待接入 `PlayerInventoryService` 的流转接口（`move_to_listing` / `move_from_listing` / `transfer_item`）
 
+### [2026-05-05] Items 模块完整实现与 CatalogTree 落地
+
+- **变更内容**：
+  - 合并 `csgo-patch-1` 分支（JIAFENG 的 Item 模型实现）与 `dev` 分支（Inventory 完整实现），解决冲突后形成统一代码基
+  - 新建 `src/structures/catalog_tree.py`：`CatalogNode` + `CatalogTree`，支持从 `catalog.json` 构造、按 key/路径查找、枚举叶子分类
+  - 迁移 `Persistence`：
+    - `Repository.items: dict[str, Item]`（原为 `dict[str, dict]`）
+    - `Repository.catalog: CatalogTree | None`（原为 `dict`）
+    - `load_all()` 使用 `CatalogTree.from_dict()` 和 `_index_items()` 构建 Item 对象
+    - `save_items()` / `save_catalog()` 调用 `to_dict()` 序列化
+  - 重写 `ItemService` 完整 CRUD：
+    - 查询：`get_by_id()`, `list_all()`, `browse_catalog()`, `items_in_category()`
+    - 管理：`create_item()`（字段校验 → 分配 ID → 构建 Item → 持久化）、`delete_item()`（检查背包/挂单引用 → 业务规则校验）
+  - CLI 属性访问迁移：全部 `item.get("name")` / `item["item_id"]` 改为 `item.name` / `item.item_id`
+  - 同步更新 `market.py` 和 `transaction.py` 中的 dict 访问为属性访问
+  - 新建 `tests/models/test_item.py`：覆盖 18 个子类路由、Mixin 属性、往返序列化、describe() 多态
+  - 新建 `tests/structures/test_catalog_tree.py`：18 个测试覆盖构造、查找、叶子枚举、往返
+  - 更新 `tests/services/test_item_service.py`：16 个测试覆盖查询、创建、删除、异常路径
+- **测试思路**：
+  - **Item 模型测试**：采用"工厂路由→属性验证→往返序列化→多态描述"四层验证
+    - 工厂路由：每个子类（Sword/Bow/Axe/Potion 等 18 个）独立测试，确保 `Item.from_dict()` 根据 `category` 正确路由
+    - Mixin 属性：验证 `Durable`/`Equippable`/`Stackable` 的继承关系（如 Sword 既是 Weapon 也是 Durable/Equippable）
+    - 往返测试：构造 dict → from_dict → to_dict → from_dict，验证数据不丢失
+    - describe()：断言输出包含关键字段（攻击/防御/效果/效率），验证多态行为
+  - **CatalogTree 测试**：采用"结构操作→路径查找→边界情况"三层验证
+    - 结构操作：从 JSON 构造、序列化往返、叶子节点枚举
+    - 路径查找：`find_node`（按 key）与 `find_by_path`（按路径如 weapon.sword）区分测试
+    - 边界：空路径、不存在的路径、root 前缀处理
+  - **ItemService 测试**：采用"查询成功→创建校验→删除保护"场景化验证
+    - 查询：ID 存在/不存在、分类前缀过滤、browse_catalog 节点存在/不存在
+    - 创建：必填字段缺失、非法 category、非法 rarity、负基础价值
+    - 删除：成功删除、被背包引用拒绝、被活跃挂单引用拒绝
+- **原因**：
+  - 项目临近截止时间，需要完成 JIAFENG 负责的 Items 模块并与 Inventory 整合
+  - 用户明确要求不接受缩减实现（必须 18 类 + CatalogTree + CLI CRUD + 一次性属性迁移）
+- **关键设计决策**：
+  - Item 模型保留 csgo-patch-1 的展开式构造器（非 dataclass），通过 `ItemFactory` 路由，与 seed 数据格式兼容
+  - CatalogTree 与现有 `catalog.json` 格式 1:1 对应，支持 `find_by_path("weapon.sword")` 语义
+  - Inventory 的 `_get_attr()` / `_item_id()` 兼容层保留，支持 Item 对象和 dict（种子数据过渡）
+- **测试**：
+  - `tests/models/test_item.py`：32 passed
+  - `tests/structures/test_catalog_tree.py`：18 passed
+  - `tests/services/test_item_service.py`：16 passed
+  - 全量测试：**265 passed**
+- **遗留问题**：
+  - CLI 物品菜单的"按分类浏览"和"创建/删除物品"交互 UI 待实现（已在 2026-05-06 条目补齐）
+  - `MarketService` 需接入 `ItemService` 和 `PlayerInventoryService` 完成完整交易闭环
+
+### [2026-05-06] Items 模块契约修复与 CLI CRUD 补齐
+
+- **变更内容**：
+  - 修复 Item 与 Inventory 的真实对象集成：`Stackable` 子类现在暴露 `stackable == true`，`Potion` / `Misc` 等真实 Item 对象可按 `stack_size_max` 合并堆叠。
+  - 收紧 Item 反序列化和往返契约：`durability`、`equipped`、`slot`、`level_req`、`class_req`、`duration` 等文档字段从 JSON 读取后会保留，不再被默认值覆盖。
+  - 收紧 `CatalogTree`：叶子节点序列化保留 `children: []`，坏数据（缺 key/label、children 非列表、child 非对象）显式失败。
+  - 对齐 `ItemService` 文档语义：`browse_catalog()` 缺失节点抛 `InvalidInputError`；`create_item()` 要求 category 是 CatalogTree 中存在的叶子分类；坏 stats 在分配正式 ID / 持久化前失败。
+  - 补齐 CLI 物品管理：新增按 CatalogTree 分类浏览、管理员创建物品、管理员删除物品；删除前展示 `describe()` 并二次确认，被背包或 active 挂单引用时显示业务错误。
+  - 同步更新 `docs/data-design.md` 与 `docs/services-interface.md` 中的 Item / CatalogTree / ItemService 契约说明。
+- **测试思路**：
+  - **真实集成测试**：新增真实 `Item.from_dict()` 对象进入 `Inventory.add()` 的用例，避免只用 FakeItem 导致 mixin 契约断裂无法被发现。
+  - **精确往返测试**：Item roundtrip 不只验证类型和名称，还断言关键 `stats` 字段完整保留。
+  - **坏数据测试**：CatalogTree 对 malformed JSON 显式抛错，防止静默跳过脏节点。
+  - **服务契约测试**：覆盖非叶 category、坏 stats 不变更 repo、成功创建只持久化一次、非法分类查询抛 `InvalidInputError`。
+  - **CLI 场景测试**：用 monkeypatch 输入序列覆盖分类浏览、创建物品、删除物品、删除被引用物品失败提示。
+- **原因**：
+  - 前一轮实现虽然测试全过，但审计发现测试未覆盖真实 Item 对象堆叠、stats 字段保留、CLI CRUD 和 CatalogTree 严格往返等关键契约。
+  - 用户要求 Items 模块按文档补齐，不能保留“功能待 CatalogTree 实现”的占位。
+- **测试**：
+  - 聚焦回归：`tests/models/test_item.py tests/services/test_inventory.py tests/structures/test_catalog_tree.py tests/services/test_item_service.py tests/ui/test_cli.py`：**155 passed**
+  - 全量测试：**278 passed**
+- **遗留问题**：
+  - `MarketService` 仍需后续接入完整交易闭环；本轮只确保 ItemService / Inventory / CLI Items 的契约稳定。
+
 <!-- 在此添加新条目 -->

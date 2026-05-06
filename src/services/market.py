@@ -74,7 +74,7 @@ class MarketService:
     def query_by_category(self, category_prefix: str) -> list[Listing]:
         item_ids = {
             item_id for item_id, item in self.repo.items.items()
-            if item.get("category", "").startswith(category_prefix)
+            if item.category.startswith(category_prefix)
         }
         return [
             l for l in self.repo.listings.values()

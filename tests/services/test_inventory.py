@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from src.errors import InvalidInputError, InventoryFullError, ItemNotFoundError
+from src.models import Item
 from src.services.inventory import Inventory, InventorySlot
 
 
@@ -104,6 +105,42 @@ class TestAddAndQuery:
 
         # 12 = 5 + 5 + 2，应该占用 3 个槽位
         assert inventory.used() == 3
+
+
+    def test_real_item_object_stackable_merges_existing_slot(self, inventory):
+        data = {
+            "item_id": "i_potion",
+            "name": "真实药水",
+            "category": "consumable.potion",
+            "rarity": "common",
+            "base_value": 10,
+            "stats": {"effect": "heal", "power": 20, "duration": 0, "stack_size_max": 10, "count": 1},
+        }
+        item = Item.from_dict(data)
+
+        inventory.add(item, count=3)
+        inventory.add(item, count=4)
+
+        assert item.stackable is True
+        assert inventory.used() == 1
+        assert inventory.find("i_potion").count == 7
+
+    def test_real_weapon_object_is_not_stackable(self, inventory):
+        data = {
+            "item_id": "i_sword",
+            "name": "真实剑",
+            "category": "weapon.sword",
+            "rarity": "common",
+            "base_value": 100,
+            "stats": {"attack": 10, "attack_speed": 1.0, "durability_max": 50},
+        }
+        item = Item.from_dict(data)
+
+        inventory.add(item, count=2)
+
+        assert item.stackable is False
+        assert inventory.used() == 2
+        assert [slot.count for slot in inventory.slots()] == [1, 1]
 
     def test_add_count_zero_raises(self, inventory):
         """count=0 应该抛 InvalidInputError"""

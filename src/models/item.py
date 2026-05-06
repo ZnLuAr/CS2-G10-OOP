@@ -1,6 +1,19 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any
-from src.errors import InventoryFullError
+from src.errors import InventoryFullError, SerializationError
+
+
+
+
+def _copy_class_req(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return list(value)
+    raise TypeError("class_req must be a list")
+
+
+
 
 # ====================== Mixin 组合 ======================
 class Durable:
@@ -15,16 +28,24 @@ class Durable:
         self.durability = self.durability_max
 
 
+
+
 class Equippable:
     """穿戴Mixin：武器/装备"""
     equipped: bool
     slot: str
+    level_req: int
+    class_req: list[str]
+
 
     def equip(self):
         self.equipped = True
 
+
     def unequip(self):
         self.equipped = False
+
+
 
 
 class Stackable:
@@ -32,20 +53,34 @@ class Stackable:
     count: int
     stack_size_max: int
 
+
+    @property
+    def stackable(self) -> bool:
+        return True
+
+
     def can_stack(self, add: int) -> bool:
         return self.count + add <= self.stack_size_max
+
 
     def add_stack(self, num: int) -> bool:
         if self.can_stack(num):
             self.count += num
             return True
-        raise InventoryFullError("InventoryFullError", field="num", value=num)
+        raise InventoryFullError(
+            player_id="item_stack",
+            capacity=self.stack_size_max,
+            context={"field": "num", "value": num},
+        )
+
 
     def remove_stack(self, num: int) -> bool:
         if self.count >= num:
             self.count -= num
             return True
         return False
+
+
 
 
 # ====================== 抽象物品基类 ======================
@@ -67,15 +102,28 @@ class Item(ABC):
         self.base_value = base_value
         self.description = description
 
+
     @abstractmethod
     def get_stats(self) -> dict[str, Any]:
         """返回该物品的stats字典（子类必须实现）"""
         pass
 
+
+    @property
+    def stackable(self) -> bool:
+        return isinstance(self, Stackable)
+
+
+    @property
+    def stats(self) -> dict[str, Any]:
+        return self.get_stats()
+
+
     @abstractmethod
     def describe(self) -> str:
         """多态描述"""
         pass
+
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为可存JSON的字典"""
@@ -92,10 +140,16 @@ class Item(ABC):
 
         return result
 
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Item":
         """从字典反序列化为对应子类Item（工厂方法）"""
-        return ItemFactory.create_item(data)
+        try:
+            return ItemFactory.create_item(data)
+        except (KeyError, TypeError, ValueError) as e:
+            raise SerializationError(entity="Item", raw=data) from e
+
+
 
 
 # ====================== 武器大类 ======================
@@ -127,6 +181,8 @@ class Weapon(Item, Durable, Equippable):
         self.durability = durability_max
         self.equipped = False
         self.slot = "weapon"
+        self.level_req = 0
+        self.class_req: list[str] = []
 
     def get_stats(self) -> dict[str, Any]:
         return {
@@ -135,7 +191,9 @@ class Weapon(Item, Durable, Equippable):
             "durability": self.durability,
             "durability_max": self.durability_max,
             "equipped": self.equipped,
-            "slot": self.slot
+            "slot": self.slot,
+            "level_req": self.level_req,
+            "class_req": list(self.class_req)
         }
 
     def describe(self) -> str:
@@ -156,6 +214,7 @@ class Sword(Weapon):
             description=description
         )
 
+
 class Bow(Weapon):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, attack: int, attack_speed: float, durability_max: int, description: str = ""):
         super().__init__(
@@ -169,6 +228,8 @@ class Bow(Weapon):
             durability_max=durability_max,
             description=description
         )
+
+
 class Spear(Weapon):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, attack: int, attack_speed: float, durability_max: int, description: str = ""):
         super().__init__(
@@ -182,6 +243,8 @@ class Spear(Weapon):
             durability_max=durability_max,
             description=description
         )
+
+
 class Hammer(Weapon):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, attack: int, attack_speed: float, durability_max: int, description: str = ""):
         super().__init__(
@@ -195,6 +258,8 @@ class Hammer(Weapon):
             durability_max=durability_max,
             description=description
         )
+
+
 class Halberd(Weapon):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, attack: int, attack_speed: float, durability_max: int, description: str = ""):
         super().__init__(
@@ -208,6 +273,9 @@ class Halberd(Weapon):
             durability_max=durability_max,
             description=description
         )
+
+
+
 
 # ====================== 工具大类 ======================
 class Tool(Item, Durable):
@@ -236,13 +304,17 @@ class Tool(Item, Durable):
         self.tier = tier
         self.durability_max = durability_max
         self.durability = durability_max
+        self.level_req = 0
+        self.class_req: list[str] = []
 
     def get_stats(self) -> dict[str, Any]:
         return {
             "efficiency": self.efficiency,
             "tier": self.tier,
             "durability": self.durability,
-            "durability_max": self.durability_max
+            "durability_max": self.durability_max,
+            "level_req": self.level_req,
+            "class_req": list(self.class_req)
         }
 
     def describe(self) -> str:
@@ -262,6 +334,8 @@ class Axe(Tool):
             durability_max=durability_max,
             description=description
         )
+
+
 class Pickaxe(Tool):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, efficiency: float, tier: int, durability_max: int, description: str = ""):
         super().__init__(
@@ -275,6 +349,8 @@ class Pickaxe(Tool):
             durability_max=durability_max,
             description=description
         )
+
+
 class Shovel(Tool):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, efficiency: float, tier: int, durability_max: int, description: str = ""):
         super().__init__(
@@ -288,6 +364,8 @@ class Shovel(Tool):
             durability_max=durability_max,
             description=description
         )
+
+
 class Hoe(Tool):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, efficiency: float, tier: int, durability_max: int, description: str = ""):
         super().__init__(
@@ -301,6 +379,9 @@ class Hoe(Tool):
             durability_max=durability_max,
             description=description
         )
+
+
+
 
 # ====================== 装备大类 ======================
 class Armor(Item, Durable, Equippable):
@@ -331,6 +412,8 @@ class Armor(Item, Durable, Equippable):
         self.durability = durability_max
         self.equipped = False
         self.slot = sub_category
+        self.level_req = 0
+        self.class_req: list[str] = []
 
     def get_stats(self) -> dict[str, Any]:
         return {
@@ -339,7 +422,9 @@ class Armor(Item, Durable, Equippable):
             "slot": self.slot,
             "durability": self.durability,
             "durability_max": self.durability_max,
-            "equipped": self.equipped
+            "equipped": self.equipped,
+            "level_req": self.level_req,
+            "class_req": list(self.class_req)
         }
 
     def describe(self) -> str:
@@ -359,6 +444,8 @@ class Helmet(Armor):
             durability_max=durability_max,
             description=description
         )
+
+
 class Chestplate(Armor):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, defense: int, magic_resist: int, durability_max: int, description: str = ""):
         super().__init__(
@@ -372,6 +459,8 @@ class Chestplate(Armor):
             durability_max=durability_max,
             description=description
         )
+
+
 class Greaves(Armor):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, defense: int, magic_resist: int, durability_max: int, description: str = ""):
         super().__init__(
@@ -385,6 +474,8 @@ class Greaves(Armor):
             durability_max=durability_max,
             description=description
         )
+
+
 class Boots(Armor):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, defense: int, magic_resist: int, durability_max: int, description: str = ""):
         super().__init__(
@@ -398,6 +489,8 @@ class Boots(Armor):
             durability_max=durability_max,
             description=description
         )
+
+
 class Shield(Armor):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, defense: int, magic_resist: int, durability_max: int, description: str = ""):
         super().__init__(
@@ -411,6 +504,9 @@ class Shield(Armor):
             durability_max=durability_max,
             description=description
         )
+
+
+
 
 # ====================== 消耗品大类 ======================
 class Consumable(Item, Stackable):
@@ -471,6 +567,8 @@ class Potion(Consumable):
             count=count,
             description=description
         )
+
+
 class Food(Consumable):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, effect: str, power: int, duration: int, stack_size_max: int, count: int = 1, nutrition: int = 0, description: str = ""):
         super().__init__(
@@ -492,6 +590,7 @@ class Food(Consumable):
         stats = super().get_stats()
         stats["nutrition"] = self.nutrition
         return stats
+
 
 class Magic(Consumable):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, effect: str, power: int, duration: int, stack_size_max: int, count: int = 1, mana_cost: int = 0, description: str = ""):
@@ -515,6 +614,7 @@ class Magic(Consumable):
         stats["mana_cost"] = self.mana_cost
         return stats
 
+
 class Material(Consumable):
     def __init__(self, item_id: str, name: str, rarity: str, base_value: int, stack_size_max: int, count: int = 1, description: str = ""):
         super().__init__(
@@ -530,6 +630,8 @@ class Material(Consumable):
             count=count,
             description=description
         )
+
+
 
 
 # ====================== 杂项大类 ======================
@@ -568,9 +670,29 @@ class Misc(Item, Stackable):
 
 class ItemFactory:
     @staticmethod
+    def _apply_usage_requirements(item: Item, stats: dict[str, Any]) -> None:
+        level_req = stats.get("level_req", 0)
+        if not isinstance(level_req, int):
+            raise TypeError("level_req must be an int")
+        item.level_req = level_req
+        item.class_req = _copy_class_req(stats.get("class_req", []))
+
+    @staticmethod
+    def _apply_durability(item: Durable, stats: dict[str, Any]) -> None:
+        durability = stats.get("durability")
+        item.durability = item.durability_max if durability is None else durability
+
+    @staticmethod
+    def _apply_equipment(item: Equippable, stats: dict[str, Any], default_slot: str) -> None:
+        item.equipped = stats.get("equipped", False)
+        item.slot = stats.get("slot", default_slot)
+
+    @staticmethod
     def create_item(data: Dict) -> Item:
         cat = data.get("category", "")
         stats = data.get("stats", {})
+        if not isinstance(stats, dict):
+            raise TypeError("stats must be a dict")
         base = {
             "item_id": data["item_id"],
             "name": data["name"],
@@ -591,11 +713,20 @@ class ItemFactory:
                 "durability_max": stats["durability_max"],
                 "description": base["description"]
             }
-            if sub == "sword": return Sword(**args)
-            if sub == "bow": return Bow(**args)
-            if sub == "spear": return Spear(**args)
-            if sub == "hammer": return Hammer(**args)
-            if sub == "halberd": return Halberd(**args)
+            classes = {
+                "sword": Sword,
+                "bow": Bow,
+                "spear": Spear,
+                "hammer": Hammer,
+                "halberd": Halberd,
+            }
+            cls = classes.get(sub)
+            if cls is not None:
+                item = cls(**args)
+                ItemFactory._apply_durability(item, stats)
+                ItemFactory._apply_equipment(item, stats, "weapon")
+                ItemFactory._apply_usage_requirements(item, stats)
+                return item
 
         if cat.startswith("tool."):
             sub = cat.split(".")[1]
@@ -609,10 +740,18 @@ class ItemFactory:
                 "durability_max": stats["durability_max"],
                 "description": base["description"]
             }
-            if sub == "axe": return Axe(**args)
-            if sub == "pickaxe": return Pickaxe(**args)
-            if sub == "shovel": return Shovel(**args)
-            if sub == "hoe": return Hoe(**args)
+            classes = {
+                "axe": Axe,
+                "pickaxe": Pickaxe,
+                "shovel": Shovel,
+                "hoe": Hoe,
+            }
+            cls = classes.get(sub)
+            if cls is not None:
+                item = cls(**args)
+                ItemFactory._apply_durability(item, stats)
+                ItemFactory._apply_usage_requirements(item, stats)
+                return item
 
         if cat.startswith("armor."):
             sub = cat.split(".")[1]
@@ -626,80 +765,90 @@ class ItemFactory:
                 "durability_max": stats["durability_max"],
                 "description": base["description"]
             }
-            if sub == "helmet": return Helmet(**args)
-            if sub == "chestplate": return Chestplate(**args)
-            if sub == "greaves": return Greaves(**args)
-            if sub == "boots": return Boots(**args)
-            if sub == "shield": return Shield(**args)
-
-        if cat.startswith("consumable.potion"):
-            args = {
-                "item_id": base["item_id"],
-                "name": base["name"],
-                "rarity": base["rarity"],
-                "base_value": base["base_value"],
-                "effect": stats["effect"],
-                "power": stats["power"],
-                "stack_size_max": stats["stack_size_max"],
-                "count": stats["count"],
-                "description": base["description"]
+            classes = {
+                "helmet": Helmet,
+                "chestplate": Chestplate,
+                "greaves": Greaves,
+                "boots": Boots,
+                "shield": Shield,
             }
-            return Potion(**args)
+            cls = classes.get(sub)
+            if cls is not None:
+                item = cls(**args)
+                ItemFactory._apply_durability(item, stats)
+                ItemFactory._apply_equipment(item, stats, sub)
+                ItemFactory._apply_usage_requirements(item, stats)
+                return item
 
-        if cat.startswith("consumable.food"):
-            args = {
-                "item_id": base["item_id"],
-                "name": base["name"],
-                "rarity": base["rarity"],
-                "base_value": base["base_value"],
-                "effect": stats["effect"],
-                "power": stats["power"],
-                "duration": stats["duration"],
-                "stack_size_max": stats["stack_size_max"],
-                "count": stats["count"],
-                "nutrition": stats.get("nutrition", 0),
-                "description": base["description"]
-            }
-            return Food(**args)
+        if cat == "consumable.potion":
+            item = Potion(
+                item_id=base["item_id"],
+                name=base["name"],
+                rarity=base["rarity"],
+                base_value=base["base_value"],
+                effect=stats["effect"],
+                power=stats["power"],
+                stack_size_max=stats["stack_size_max"],
+                count=stats.get("count", 1),
+                description=base["description"],
+            )
+            item.duration = stats.get("duration", item.duration)
+            return item
 
-        if cat.startswith("consumable.magic"):
-            args = {
-                "item_id": base["item_id"],
-                "name": base["name"],
-                "rarity": base["rarity"],
-                "base_value": base["base_value"],
-                "effect": stats["effect"],
-                "power": stats["power"],
-                "duration": stats["duration"],
-                "stack_size_max": stats["stack_size_max"],
-                "count": stats["count"],
-                "mana_cost": stats.get("mana_cost", 0),
-                "description": base["description"]
-            }
-            return Magic(**args)
+        if cat == "consumable.food":
+            return Food(
+                item_id=base["item_id"],
+                name=base["name"],
+                rarity=base["rarity"],
+                base_value=base["base_value"],
+                effect=stats["effect"],
+                power=stats["power"],
+                duration=stats["duration"],
+                stack_size_max=stats["stack_size_max"],
+                count=stats.get("count", 1),
+                nutrition=stats.get("nutrition", 0),
+                description=base["description"],
+            )
 
-        if cat.startswith("consumable.material"):
-            args = {
-                "item_id": base["item_id"],
-                "name": base["name"],
-                "rarity": base["rarity"],
-                "base_value": base["base_value"],
-                "stack_size_max": stats["stack_size_max"],
-                "count": stats["count"],
-                "description": base["description"]
-            }
-            return Material(**args)
+        if cat == "consumable.magic":
+            return Magic(
+                item_id=base["item_id"],
+                name=base["name"],
+                rarity=base["rarity"],
+                base_value=base["base_value"],
+                effect=stats["effect"],
+                power=stats["power"],
+                duration=stats["duration"],
+                stack_size_max=stats["stack_size_max"],
+                count=stats.get("count", 1),
+                mana_cost=stats.get("mana_cost", 0),
+                description=base["description"],
+            )
+
+        if cat == "consumable.material":
+            item = Material(
+                item_id=base["item_id"],
+                name=base["name"],
+                rarity=base["rarity"],
+                base_value=base["base_value"],
+                stack_size_max=stats["stack_size_max"],
+                count=stats.get("count", 1),
+                description=base["description"],
+            )
+            item.effect = stats.get("effect", item.effect)
+            item.power = stats.get("power", item.power)
+            item.duration = stats.get("duration", item.duration)
+            return item
 
         if cat == "misc":
-            args = {
-                "item_id": base["item_id"],
-                "name": base["name"],
-                "rarity": base["rarity"],
-                "base_value": base["base_value"],
-                "stack_size_max": stats["stack_size_max"],
-                "count": stats["count"],
-                "description": base["description"]
-            }
-            return Misc(**args)
+            return Misc(
+                item_id=base["item_id"],
+                name=base["name"],
+                rarity=base["rarity"],
+                base_value=base["base_value"],
+                stack_size_max=stats["stack_size_max"],
+                count=stats.get("count", 1),
+                description=base["description"],
+            )
 
         raise ValueError(f"Unknown category: {cat}")

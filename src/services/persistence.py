@@ -9,8 +9,8 @@
 约定：
 - ``Repository.players / listings / transactions`` 已使用真实模型类
   （Player / Listing / Transaction 的 dataclass）
-- ``Repository.items / catalog`` 暂以 dict 承载，等 JIAFENG / XINGZHOU
-  的 Item 多态层与 CatalogTree 落地后切换
+- ``Repository.items`` 使用 Item 模型对象（dict[str, Item]）
+- ``Repository.catalog`` 使用 CatalogTree 对象
 - 详见 docs/services-interface.md §4
 """
 
@@ -28,9 +28,10 @@ from src.errors import (
     PersistenceError,
     SerializationError,
 )
-from src.models import Listing, Player, Transaction
+from src.models import Item, Listing, Player, Transaction
 from src.services import seed as _seed
 from src.services.logger import log
+from src.structures import CatalogNode, CatalogTree
 
 __all__ = ["Persistence", "Repository"]
 
@@ -46,10 +47,10 @@ class Repository:
     """加载后所有内存数据通过单一对象传递，详见 services-interface.md §4.2"""
 
     players: dict[str, Player] = field(default_factory=dict)
-    items: dict[str, dict] = field(default_factory=dict)              # 待 Item 模型落地
+    items: dict[str, Item] = field(default_factory=dict)
     listings: dict[str, Listing] = field(default_factory=dict)
     transactions: list[Transaction] = field(default_factory=list)
-    catalog: dict[str, Any] = field(default_factory=dict)             # 待 CatalogTree 落地
+    catalog: CatalogTree = field(default_factory=lambda: CatalogTree(CatalogNode("root", "全部")))
 
 
 
@@ -126,14 +127,15 @@ class Persistence:
         repo = Repository()
 
         catalog_raw = self._read_json(self._path("catalog.json"),
-                                      default={"root": {}})
-        repo.catalog = catalog_raw if isinstance(catalog_raw, dict) else {}
+                                      default={"root": {"key": "root", "label": "全部", "children": []}})
+        try:
+            repo.catalog = CatalogTree.from_dict(catalog_raw)
+        except (ValueError, KeyError, TypeError) as e:
+            raise SerializationError(entity="catalog", raw=catalog_raw) from e
 
-        # Item 暂保留 dict
-        repo.items = self._index_dicts(
+        # Item 反序列化为模型对象
+        repo.items = self._index_items(
             self._read_list(self._path("items.json"), key="items"),
-            id_field="item_id",
-            entity="Item",
         )
 
         # Player / Listing / Transaction 反序列化为模型类
@@ -171,8 +173,10 @@ class Persistence:
         )
 
     def save_items(self, repo: Repository) -> None:  # persists
-        self._write_with_backup(self._path("items.json"),
-                                {"items": list(repo.items.values())})
+        self._write_with_backup(
+            self._path("items.json"),
+            {"items": [item.to_dict() for item in repo.items.values()]},
+        )
 
     def save_market(self, repo: Repository) -> None:  # persists
         self._write_with_backup(
@@ -187,7 +191,8 @@ class Persistence:
         )
 
     def save_catalog(self, repo: Repository) -> None:  # persists
-        self._write_with_backup(self._path("catalog.json"), repo.catalog)
+        if repo.catalog is not None:
+            self._write_with_backup(self._path("catalog.json"), repo.catalog.to_dict())
 
     def save_all(self, repo: Repository) -> None:  # persists
         self.save_catalog(repo)
@@ -289,14 +294,18 @@ class Persistence:
     # 内部辅助 - 反序列化
     # =====================================================================
 
-    @staticmethod
-    def _index_dicts(records: Iterable[dict], id_field: str,
-                     entity: str) -> dict[str, dict]:
-        result: dict[str, dict] = {}
+    @classmethod
+    def _index_items(cls, records: Iterable[dict]) -> dict[str, Item]:
+        """反序列化 Item 记录并建立索引"""
+        result: dict[str, Item] = {}
         for rec in records:
-            if not isinstance(rec, dict) or id_field not in rec:
-                raise SerializationError(entity=entity, raw=rec)
-            result[rec[id_field]] = rec
+            if not isinstance(rec, dict) or "item_id" not in rec:
+                raise SerializationError(entity="Item", raw=rec)
+            try:
+                item = Item.from_dict(rec)
+            except Exception as e:
+                raise SerializationError(entity="Item", raw=rec) from e
+            result[item.item_id] = item
         return result
 
     @staticmethod

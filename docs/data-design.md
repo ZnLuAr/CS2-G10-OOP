@@ -198,9 +198,11 @@ Player ───持有───▶ Inventory ───包含───▶ Item
 
 ### 7.2 设计要点
 
-- 用**自实现的 Tree** 加载到内存
+- 用**自实现的 Tree** 加载到内存，对应代码中的 `CatalogTree` / `CatalogNode`
 - 浏览菜单通过**递归遍历**渲染（OOP 作业必考点之一）
 - `Item.category` 形如 `"weapon.sword"`，路径与树节点的 `key` 链对齐
+- 叶子节点序列化时保留 `"children": []`，保证 `CatalogTree.to_dict()` 能与 `catalog.json` 稳定往返
+- `CatalogTree.from_dict()` 对缺失 `key` / `label`、`children` 非列表、子节点非对象等坏数据显式报错，不静默跳过
 - 分类结构相对稳定，运行时一般不修改；新增大类 / 子类需同步更新 `catalog.json` 与 §8.1
 
 ---
@@ -264,8 +266,10 @@ Item (abstract)
 | `category` | `str` | 分类路径 |
 | `rarity` | `str` | 稀有度 |
 | `base_value` | `int` | 基础价值 |
-| `to_dict()` | `dict` | 序列化为 JSON 可存储格式 |
-| `from_dict()` | `Item` | （类方法 / 工厂）按 `category` 反序列化为正确子类 |
+| `stats` | `dict` | 由子类属性生成的 JSON 兼容扩展字段 |
+| `stackable` | `bool` | 是否可堆叠；`Stackable` 子类为 `true`，其余为 `false` |
+| `to_dict()` | `dict` | 序列化为 JSON 可存储格式，保留文档定义的 stats 字段 |
+| `from_dict()` | `Item` | （类方法 / 工厂）按 `category` 反序列化为正确子类，未知分类或坏 stats 抛 `SerializationError` |
 | `describe()` | `str` | 人类可读的描述（被各子类多态实现） |
 
 #### 8.2.2 中间基类（按业务规则归并）
@@ -274,7 +278,8 @@ Item (abstract)
 |------|----------------|------|
 | `Durable` mixin | 耐久度（`durability` / `durability_max`） | Weapon、Tool、Armor |
 | `Equippable` mixin | 穿戴状态（`equipped`、`slot`） | Weapon、Armor |
-| `Stackable` mixin | 堆叠（`count`、`stack_size_max`） | Consumable、Misc |
+| 使用门槛属性 | `level_req`、`class_req`，作为可用性约束而非穿戴字段 | Weapon、Tool、Armor |
+| `Stackable` mixin | 堆叠（`count`、`stack_size_max`、`stackable=True`） | Consumable、Misc |
 
 > **设计取舍**：用组合（mixin / 接口）而非深层继承，避免菱形继承。
 > 详见 `docs/dev-materials-for-report/design-decisions.md` 中相应条目（待补充）。
@@ -286,7 +291,7 @@ Item (abstract)
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|:----:|------|
 | `item_id` | `str` | ✅ | 形如 `i_001` |
-| `name` | `str` | ✅ | 长度 1–32 |
+| `name` | `str` | ✅ | 长度 1–40 |
 | `category` | `str` | ✅ | 详见 §8.1 |
 | `rarity` | `str` | ✅ | `common` / `uncommon` / `rare` / `epic` / `legendary` |
 | `base_value` | `int` | ✅ | 系统基础价值（≥ 0） |
@@ -297,12 +302,14 @@ Item (abstract)
 
 - **耐久度** `durability` / `durability_max`
   - 适用：武器 / 工具 / 装备
-  - 创建时 `durability == durability_max`
+  - 创建时如未提供 `durability`，默认 `durability == durability_max`
+  - 从 JSON 反序列化时如提供了 `durability`，必须保留当前耐久，不可重置为满耐久
   - 耐久 = 0 的物品**不能挂单**，可以保留在背包中
   - 后续可扩展"修理"功能
 
 - **堆叠** `count` / `stack_size_max`
   - 适用：消耗品 / 杂项
+  - `Stackable` 子类暴露 `stackable == true`，Inventory 通过该属性识别是否可合堆叠
   - 同一 `item_id` 的可堆叠物品在背包中合并为一格节点
   - 当一格达到 `stack_size_max` 上限后，超出部分**自动新建一格**（同 `item_id` 可在背包中占多格）
   - 若背包已满（达容量上限）且无可堆叠的余位，则**拒绝**入库并提示
@@ -310,6 +317,7 @@ Item (abstract)
 
 - **穿戴** `equipped`（默认 `false`）+ `slot`
   - 适用：武器 / 装备
+  - 从 JSON 反序列化时如提供了 `equipped` / `slot`，必须保留当前穿戴状态和穿戴位
   - 已穿戴的物品**不能挂单 / 不能丢弃**，需先脱下
   - 同一穿戴位互斥（同时只能穿一个头盔、一把武器等）
 
@@ -330,6 +338,8 @@ Item (abstract)
 | `durability_max` | `int` | 满耐久 |
 | `equipped` | `bool` | 是否已穿戴 |
 | `slot` | `str` | 固定为 `"weapon"`（预留主副手扩展） |
+| `level_req` | `int` | 使用等级要求，缺省为 0 |
+| `class_req` | `list[str]` | 职业要求，缺省为空列表 |
 
 ##### 子类微调建议（不强制写入 stats，仅为生成种子数据时参考）
 
@@ -349,6 +359,8 @@ Item (abstract)
 | `tier` | `int` | 适用等级（1=木 / 2=石 / 3=铁 / 4=金 / 5=钻石） |
 | `durability` | `int` | 当前耐久 |
 | `durability_max` | `int` | 满耐久 |
+| `level_req` | `int` | 使用等级要求，缺省为 0 |
+| `class_req` | `list[str]` | 职业要求，缺省为空列表 |
 
 > 工具无 `equipped`，使用时按需取出。
 
@@ -362,6 +374,8 @@ Item (abstract)
 | `durability` | `int` | 当前耐久 |
 | `durability_max` | `int` | 满耐久 |
 | `equipped` | `bool` | 是否已穿戴 |
+| `level_req` | `int` | 使用等级要求，缺省为 0 |
+| `class_req` | `list[str]` | 职业要求，缺省为空列表 |
 
 #### 8.4.4 消耗品 `consumable.*`
 
