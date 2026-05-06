@@ -106,4 +106,15 @@
   - 增加的实现复杂度可控，不会显著拖慢开发进度
 - **影响**：所有 Item 子类、`Inventory.add/remove`、`Market.list/buy` 的校验逻辑、自定义异常类
 
+### [2026-05-06] 批量结算订单必须包含 buyer_id
+
+- **背景**：`MarketService.settle_pending()` 最初按 `listing_ids: list[str]` 设计，但真实购买流程 `buy(listing_id, buyer_id)` 必须知道买家是谁，只有挂单 ID 无法校验金币、自购、背包容量，也无法生成合法 `Transaction.buyer_id`。
+- **选项**：
+  - 继续保持 `list[str]`，在实现中伪造或默认买家
+  - 改为 buyer-aware 订单：`list[tuple[str, str]]`，每项为 `(listing_id, buyer_id)`
+  - 新增持久化的 PendingOrder 模型
+- **决定**：改为 `settle_pending(orders: list[tuple[str, str]]) -> list[Transaction]`，本轮不新增持久化 PendingOrder。
+- **理由**：伪造买家会破坏交易数据真实性；新增模型会扩大 JSON schema 和 UI 范围。buyer-aware tuple 足以满足管理员批量结算和 Queue FIFO 演示。
+- **影响**：`MarketService.settle_pending()`、CLI 批量结算入口、`docs/services-interface.md`、`docs/data-design.md`、`docs/功能列表.csv`、市场服务测试。
+
 <!-- 在此添加新条目 -->

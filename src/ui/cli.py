@@ -230,15 +230,18 @@ class TradingCLI:
         print("  3. 浏览全部挂单")
         print("  4. 按价格区间查询")
         print("  5. 按分类筛选")
-        print("  6. 挂单排序")
-        print("  7. 购买物品")
+        print("  6. 按卖家筛选")
+        print("  7. 挂单详情")
+        print("  8. 挂单排序")
+        print("  9. 购买物品")
+        print("  10. 批量结算挂单（管理员）")
         print("-" * 40)
         print("  b. 返回主菜单")
         print("=" * 40)
 
         return self._prompt_choice(
             "请输入选项",
-            valid_choices={"1", "2", "3", "4", "5", "6", "7", "b", "B"}
+            valid_choices={"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "b", "B"}
         )
 
 
@@ -439,7 +442,7 @@ class TradingCLI:
     def _handle_market_choice(self, choice: str) -> None:
         """处理交易市场子菜单选择"""
         if choice == "1":
-            print("\n[挂单上架] 功能待 MarketService 实现")
+            self._create_listing()
         elif choice == "2":
             self._cancel_listing()
         elif choice == "3":
@@ -447,11 +450,17 @@ class TradingCLI:
         elif choice == "4":
             self._query_by_price_range()
         elif choice == "5":
-            print("\n[按分类筛选] 功能待 MarketService 实现")
+            self._filter_listings_by_category()
         elif choice == "6":
-            self._sort_listings()
+            self._filter_listings_by_seller()
         elif choice == "7":
-            print("\n[购买物品] 功能待 MarketService 实现")
+            self._show_listing_detail()
+        elif choice == "8":
+            self._sort_listings()
+        elif choice == "9":
+            self._buy_listing()
+        elif choice == "10":
+            self._settle_pending_listings()
         self._pause()
 
 
@@ -825,36 +834,52 @@ class TradingCLI:
             print(f"  ... 还有 {len(active)-20} 个挂单未显示")
 
 
-    def _cancel_listing(self) -> None:
-        """撤销挂单（支持撤销）"""
-        lid = input("请输入要撤销的挂单 ID：").strip()
-        listing = self.repo.listings.get(lid)
-        if not listing:
-            print(f"[提示] 挂单 {lid} 不存在")
-            return
-        if listing.status != "active":
-            print(f"[提示] 挂单 {lid} 不是活跃状态，无法撤销")
+    def _create_listing(self) -> None:
+        """创建市场挂单"""
+        seller_id = input("卖家玩家 ID：").strip()
+        item_id = input("物品 ID：").strip()
+        count = self._prompt_int("出售数量")
+        price = self._prompt_int("单价")
+
+        try:
+            listing = self.app.market_service.create_listing(seller_id, item_id, count, price)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
             return
 
-        confirm = input(f"确认撤销挂单 {lid}？此操作可撤销 (y/n)：").strip().lower()
+        item = self.repo.items.get(listing.item_id)
+        item_name = item.name if item else listing.item_id
+        print(
+            f"[成功] 已创建挂单 {listing.listing_id}："
+            f"{item_name} x{listing.count} @ {listing.price}"
+        )
+
+
+    def _cancel_listing(self) -> None:
+        """撤销挂单"""
+        lid = input("请输入要撤销的挂单 ID：").strip()
+        requester_id = input("卖家玩家 ID：").strip()
+        try:
+            listing = self.app.market_service.get_listing(lid)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+
+        item = self.repo.items.get(listing.item_id)
+        item_name = item.name if item else listing.item_id
+        confirm = input(
+            f"确认撤销挂单 {lid}（{item_name} x{listing.count}）？此操作不可撤销 (y/n)："
+        ).strip().lower()
         if confirm != "y":
             print("已取消")
             return
 
-        old_status = listing.status
-        listing.status = "cancelled"
-        self.app.persistence.save_market(self.repo)
-
-        def undo():
-            listing.status = old_status
-            self.app.persistence.save_market(self.repo)
-
-        self.op_stack.push(Operation(
-            name=f"撤销挂单 {lid}",
-            undo_fn=undo,
-            context={"listing_id": lid}
-        ))
-        print(f"[成功] 已撤销挂单 {lid}")
+        try:
+            self.app.market_service.cancel_listing(lid, requester_id)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+        print(f"[成功] 已撤销挂单 {lid}，物品已退回卖家背包")
 
 
     def _query_by_price_range(self) -> None:
@@ -873,6 +898,150 @@ class TradingCLI:
             print(f"  {l.listing_id}: {name} x{l.count} @ {l.price}")
         if len(matches) > 10:
             print(f"  ... 还有 {len(matches)-10} 个")
+
+
+    def _filter_listings_by_category(self) -> None:
+        """按物品分类筛选挂单"""
+        category = input("分类路径（如 weapon.sword / misc）：").strip()
+        try:
+            matches = self.app.market_service.query_by_category(category)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+
+        print(f"\n分类 {category} 下有 {len(matches)} 个活跃挂单：")
+        for l in matches[:10]:
+            item = self.repo.items.get(l.item_id)
+            name = item.name if item else l.item_id[:8]
+            print(f"  {l.listing_id}: {name} x{l.count} @ {l.price}")
+        if len(matches) > 10:
+            print(f"  ... 还有 {len(matches)-10} 个")
+
+
+    def _filter_listings_by_seller(self) -> None:
+        """按卖家筛选挂单"""
+        seller_id = input("卖家玩家 ID：").strip()
+        try:
+            matches = self.app.market_service.query_by_seller(seller_id)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+
+        seller = self.repo.players[seller_id]
+        print(f"\n卖家 {seller.name} ({seller_id}) 有 {len(matches)} 个活跃挂单：")
+        for l in matches[:10]:
+            item = self.repo.items.get(l.item_id)
+            name = item.name if item else l.item_id[:8]
+            print(f"  {l.listing_id}: {name} x{l.count} @ {l.price}")
+        if len(matches) > 10:
+            print(f"  ... 还有 {len(matches)-10} 个")
+
+
+    def _show_listing_detail(self) -> None:
+        """显示单条挂单详情"""
+        listing_id = input("请输入挂单 ID：").strip()
+        try:
+            listing = self.app.market_service.get_listing(listing_id)
+            seller = self.app.player_service.get_by_id(listing.seller_id)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+
+        item = self.repo.items.get(listing.item_id)
+        item_name = item.name if item else listing.item_id
+        total = listing.count * listing.price
+        print("\n挂单详情")
+        print("-" * 60)
+        print(f"挂单 ID：{listing.listing_id}")
+        print(f"状态：{listing.status}")
+        print(f"卖家：{seller.name} ({seller.player_id})")
+        print(f"物品：{item_name} ({listing.item_id})")
+        if item is not None:
+            print(f"分类：{item.category}")
+            print(f"稀有度：{item.rarity}")
+            print(f"基础价值：{item.base_value}")
+            print(f"物品描述：{item.describe()}")
+        print(f"数量：{listing.count}")
+        print(f"单价：{listing.price}")
+        print(f"总价：{total}")
+        print(f"上架时间：{listing.created_at}")
+        print(f"关闭时间：{listing.closed_at or '-'}")
+        print(f"实例状态：{listing.instance_state or '-'}")
+
+        history = self.app.transaction_service.by_item(listing.item_id)
+        if not history:
+            print("历史价格参考：暂无成交记录")
+            return
+
+        stats = self.app.transaction_service.price_stats(listing.item_id)
+        print(
+            f"历史价格参考：最低 {stats['min']} / 最高 {stats['max']} / "
+            f"平均 {stats['avg']:.2f} / 共 {stats['count']} 笔"
+        )
+        print("最近成交：")
+        for txn in history[:5]:
+            print(
+                f"  {txn.completed_at}: {txn.transaction_id} "
+                f"x{txn.count} @ {txn.price} = {txn.total}"
+            )
+
+
+    def _buy_listing(self) -> None:
+        """购买市场挂单"""
+        lid = input("请输入要购买的挂单 ID：").strip()
+        buyer_id = input("买家玩家 ID：").strip()
+        try:
+            listing = self.app.market_service.get_listing(lid)
+            buyer = self.app.player_service.get_by_id(buyer_id)
+            seller = self.app.player_service.get_by_id(listing.seller_id)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+
+        item = self.repo.items.get(listing.item_id)
+        item_name = item.name if item else listing.item_id
+        total = listing.count * listing.price
+        print("\n请确认交易：")
+        print(f"  买家：{buyer.name} ({buyer.player_id})")
+        print(f"  卖家：{seller.name} ({seller.player_id})")
+        print(f"  物品：{item_name} ({listing.item_id}) x{listing.count}")
+        print(f"  单价：{listing.price}")
+        print(f"  总价：{total}")
+        confirm = input("确认购买？(y/n)：").strip().lower()
+        if confirm != "y":
+            print("已取消")
+            return
+
+        try:
+            txn = self.app.market_service.buy(lid, buyer_id)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+        print(f"[成功] 交易完成，交易记录：{txn.transaction_id}")
+
+
+    def _settle_pending_listings(self) -> None:
+        """批量结算挂单（管理员）"""
+        print("请输入待结算订单，每行格式：listing_id buyer_id；空行结束。")
+        orders: list[tuple[str, str]] = []
+        while True:
+            line = input("订单：").strip()
+            if not line:
+                break
+            parts = line.split()
+            if len(parts) != 2:
+                print("[提示] 格式应为：listing_id buyer_id")
+                continue
+            orders.append((parts[0], parts[1]))
+
+        if not orders:
+            print("未输入待结算订单")
+            return
+
+        txns = self.app.market_service.settle_pending(orders)
+        print(f"[完成] 成功结算 {len(txns)} / {len(orders)} 条订单")
+        for txn in txns:
+            print(f"  {txn.transaction_id}: {txn.listing_id} -> {txn.buyer_id}, total={txn.total}")
 
 
     def _sort_listings(self) -> None:

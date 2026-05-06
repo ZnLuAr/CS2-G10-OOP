@@ -248,6 +248,243 @@ class TestSubMenu:
         out = capsys.readouterr().out
         assert len(out) > 0
 
+    def test_market_create_listing_cli_success(self, fresh_cli, mock_input, capsys):
+        """CLI 挂单上架会调用 MarketService 并从背包移出物品"""
+        seller = next(iter(fresh_cli.repo.players.values()))
+        item = fresh_cli.app.item_service.create_item({
+            "name": "CLI市场材料",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        seller.inventory.append({"item_id": item.item_id, "count": 5})
+
+        mock_input("4", "1", seller.player_id, item.item_id, "2", "9", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        created = [l for l in fresh_cli.repo.listings.values() if l.item_id == item.item_id]
+        assert "已创建挂单" in out
+        assert len(created) == 1
+        assert created[0].status == "active"
+        assert sum(s.get("count", 1) for s in seller.inventory if s.get("item_id") == item.item_id) == 3
+        assert "功能待 MarketService 实现" not in out
+
+    def test_market_cancel_listing_cli_uses_service(self, fresh_cli, mock_input, capsys):
+        """CLI 撤销挂单会退回物品并关闭挂单"""
+        seller = next(iter(fresh_cli.repo.players.values()))
+        item = fresh_cli.app.item_service.create_item({
+            "name": "CLI撤销材料",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        seller.inventory.append({"item_id": item.item_id, "count": 1})
+        listing = fresh_cli.app.market_service.create_listing(seller.player_id, item.item_id, 1, 11)
+
+        mock_input("4", "2", listing.listing_id, seller.player_id, "y", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "已撤销挂单" in out
+        assert listing.status == "cancelled"
+        assert listing.closed_at is not None
+        assert any(s.get("item_id") == item.item_id for s in seller.inventory)
+
+    def test_market_category_filter_cli_display(self, fresh_cli, mock_input, capsys):
+        """CLI 按分类筛选活跃挂单"""
+        seller = next(iter(fresh_cli.repo.players.values()))
+        item = fresh_cli.app.item_service.create_item({
+            "name": "CLI分类材料",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        seller.inventory.append({"item_id": item.item_id, "count": 1})
+        listing = fresh_cli.app.market_service.create_listing(seller.player_id, item.item_id, 1, 12)
+
+        mock_input("4", "5", "misc", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert listing.listing_id in out
+        assert "CLI分类材料" in out
+        assert "功能待 MarketService 实现" not in out
+
+    def test_market_seller_filter_cli_display(self, fresh_cli, mock_input, capsys):
+        """CLI 按卖家筛选活跃挂单"""
+        seller = next(iter(fresh_cli.repo.players.values()))
+        item = fresh_cli.app.item_service.create_item({
+            "name": "CLI卖家筛选材料",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        seller.inventory.append({"item_id": item.item_id, "count": 1})
+        listing = fresh_cli.app.market_service.create_listing(seller.player_id, item.item_id, 1, 14)
+
+        mock_input("4", "6", seller.player_id, "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert seller.name in out
+        assert listing.listing_id in out
+        assert "CLI卖家筛选材料" in out
+
+    def test_market_listing_detail_cli_display(self, fresh_cli, mock_input, capsys):
+        """CLI 挂单详情展示卖家、物品字段和历史价格参考"""
+        from src.models import Transaction
+
+        players = list(fresh_cli.repo.players.values())
+        seller, buyer = players[0], players[1]
+        item = fresh_cli.app.item_service.create_item({
+            "name": "CLI详情材料",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 3,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        seller.inventory.append({"item_id": item.item_id, "count": 1})
+        listing = fresh_cli.app.market_service.create_listing(seller.player_id, item.item_id, 1, 14)
+        fresh_cli.repo.transactions.append(Transaction(
+            transaction_id="t_cli_detail",
+            listing_id="l_history",
+            buyer_id=buyer.player_id,
+            seller_id=seller.player_id,
+            item_id=item.item_id,
+            count=1,
+            price=10,
+            total=10,
+            completed_at="2026-05-06T00:00:00Z",
+        ))
+
+        mock_input("4", "7", listing.listing_id, "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "挂单详情" in out
+        assert seller.name in out
+        assert "CLI详情材料" in out
+        assert "分类：misc" in out
+        assert "历史价格参考" in out
+        assert "t_cli_detail" in out
+
+    def test_market_listing_detail_cli_missing_listing(self, fresh_cli, mock_input, capsys):
+        """CLI 挂单详情处理不存在挂单"""
+        mock_input("4", "7", "l_missing", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "未找到挂单" in out
+
+    def test_market_buy_cli_confirmation_no_does_not_mutate(self, fresh_cli, mock_input, capsys):
+        """CLI 购买确认为 n 时不执行交易"""
+        players = list(fresh_cli.repo.players.values())
+        seller, buyer = players[0], players[1]
+        buyer.gold = 999
+        item = fresh_cli.app.item_service.create_item({
+            "name": "CLI取消购买材料",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        seller.inventory.append({"item_id": item.item_id, "count": 1})
+        listing = fresh_cli.app.market_service.create_listing(seller.player_id, item.item_id, 1, 13)
+        before = (buyer.gold, list(buyer.inventory), listing.status, len(fresh_cli.repo.transactions))
+
+        mock_input("4", "9", listing.listing_id, buyer.player_id, "n", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "已取消" in out
+        assert (buyer.gold, buyer.inventory, listing.status, len(fresh_cli.repo.transactions)) == before
+
+    def test_market_buy_cli_success(self, fresh_cli, mock_input, capsys):
+        """CLI 购买成功路径"""
+        players = list(fresh_cli.repo.players.values())
+        seller, buyer = players[0], players[1]
+        seller.gold = 100
+        buyer.gold = 999
+        item = fresh_cli.app.item_service.create_item({
+            "name": "CLI购买材料",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        seller.inventory.append({"item_id": item.item_id, "count": 1})
+        listing = fresh_cli.app.market_service.create_listing(seller.player_id, item.item_id, 1, 17)
+
+        mock_input("4", "9", listing.listing_id, buyer.player_id, "y", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "交易完成" in out
+        assert listing.status == "sold"
+        assert buyer.gold == 982
+        assert seller.gold == 117
+        assert any(t.listing_id == listing.listing_id for t in fresh_cli.repo.transactions)
+        assert any(s.get("item_id") == item.item_id for s in buyer.inventory)
+
+    def test_market_buy_cli_insufficient_gold_error(self, fresh_cli, mock_input, capsys):
+        """CLI 购买金币不足时友好提示且不成交"""
+        players = list(fresh_cli.repo.players.values())
+        seller, buyer = players[0], players[1]
+        buyer.gold = 1
+        item = fresh_cli.app.item_service.create_item({
+            "name": "CLI金币不足材料",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        seller.inventory.append({"item_id": item.item_id, "count": 1})
+        listing = fresh_cli.app.market_service.create_listing(seller.player_id, item.item_id, 1, 99)
+
+        mock_input("4", "9", listing.listing_id, buyer.player_id, "y", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "金币不足" in out
+        assert listing.status == "active"
+        assert not any(t.listing_id == listing.listing_id for t in fresh_cli.repo.transactions)
+
+    def test_market_settle_pending_cli_processes_batch(self, fresh_cli, mock_input, capsys):
+        """CLI 管理员批量结算使用 buyer-aware 订单"""
+        players = list(fresh_cli.repo.players.values())
+        seller, buyer = players[0], players[1]
+        buyer.gold = 999
+        item = fresh_cli.app.item_service.create_item({
+            "name": "CLI批量结算材料",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        seller.inventory.append({"item_id": item.item_id, "count": 2})
+        first = fresh_cli.app.market_service.create_listing(seller.player_id, item.item_id, 1, 21)
+        second = fresh_cli.app.market_service.create_listing(seller.player_id, item.item_id, 1, 22)
+        second.status = "sold"
+
+        mock_input(
+            "4", "10",
+            f"{first.listing_id} {buyer.player_id}",
+            f"{second.listing_id} {buyer.player_id}",
+            "",
+            "", "b", "", "6",
+        )
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "成功结算 1 / 2 条订单" in out
+        assert first.status == "sold"
+        assert any(t.listing_id == first.listing_id for t in fresh_cli.repo.transactions)
+
 
 
 

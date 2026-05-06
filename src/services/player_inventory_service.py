@@ -98,7 +98,13 @@ class PlayerInventoryService:
 
     # ========== 管理操作（管理员调试） ==========
 
-    def add_item(self, player_id: str, item_id: str, count: int = 1) -> None:
+    def add_item(
+        self,
+        player_id: str,
+        item_id: str,
+        count: int = 1,
+        instance_state: dict | None = None,
+    ) -> None:
         """
         向玩家背包添加物品（管理员调试用）
 
@@ -106,6 +112,7 @@ class PlayerInventoryService:
             player_id: 玩家 ID
             item_id: 物品 ID
             count: 添加数量，必须 > 0
+            instance_state: 实例状态快照
 
         Raises:
             PlayerNotFoundError: 玩家不存在
@@ -122,12 +129,10 @@ class PlayerInventoryService:
         inventory = self._build_inventory(player_id, player.inventory)
 
         try:
-            inventory.add(item, count=count)
-            # 同步回 player 并保存
+            inventory.add(item, count=count, instance_state=instance_state)
             player.inventory = inventory.to_inventory_data()
             self.persistence.save_players(self.repo)
         except InventoryFullError as e:
-            # 补充上下文
             raise InventoryFullError(
                 player_id=player_id,
                 capacity=inventory.capacity,
@@ -220,7 +225,13 @@ class PlayerInventoryService:
         self.remove_item(player_id, item_id, count)
 
 
-    def move_from_listing(self, player_id: str, item_id: str, count: int = 1) -> None:
+    def move_from_listing(
+        self,
+        player_id: str,
+        item_id: str,
+        count: int = 1,
+        instance_state: dict | None = None,
+    ) -> None:
         """
         物品从挂单退回背包（撤销挂单时调用）
 
@@ -228,13 +239,14 @@ class PlayerInventoryService:
             player_id: 卖家 ID
             item_id: 物品 ID
             count: 数量
+            instance_state: 挂单保存的实例状态快照
 
         Raises:
             PlayerNotFoundError: 玩家不存在
             ItemNotFoundError: 物品不存在（系统中）
             InventoryFullError: 背包已满无法退回
         """
-        self.add_item(player_id, item_id, count)
+        self.add_item(player_id, item_id, count, instance_state=instance_state)
 
 
     def transfer_item(

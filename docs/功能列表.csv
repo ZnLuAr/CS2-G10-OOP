@@ -27,20 +27,20 @@ GETS,背包,按稀有度排序背包,对背包进行排序展示，但不改变�
 GETS,背包,从背包移除物品,从背包移除指定物品（用于成交 / 丢弃 / 上架）,已完成,P0-关键,#Structure-DoublyLinkedList,Inventory.remove() 实现；支持原子性检查；CLI 移除入口已接入,26,XINGZHOU PENG,已完成,src/services/inventory.py::remove + CLI 移除物品
 GETS,背包,向背包添加物品,向背包末尾添加物品（用于初始化 / 购买入库）,已完成,P0-关键,#Structure-DoublyLinkedList,Inventory.add() 实现双向链表尾部添加；支持堆叠合并；CLI 添加入口已接入,27,XINGZHOU PENG,已完成,src/services/inventory.py::add + CLI 添加物品（调试）
 GETS,背包,背包容量限制,每个玩家背包上限 N（如 50 件），超限拒绝添加并提示,已完成,P1-重要,#Validation,Inventory.CAPACITY=50；满时抛 InventoryFullError；CLI 容量查看入口已接入,28,XINGZHOU PENG,已完成,src/services/inventory.py CAPACITY + CLI 容量信息
-GETS,市场,挂单上架,选定背包内一件物品 + 输入售价（≥ 1），生成挂单写入 market.json，物品从背包移出但仍属于卖家,已规划,P0-关键,#Create,业务规则：同一物品不能重复挂单,29,MINGJIN LI,未完成,
-GETS,市场,撤销挂单,卖家撤销自己的活跃挂单，物品退回背包，挂单状态置 cancelled,已规划,P0-关键,#Update,可被操作栈撤销链覆盖,30,MINGJIN LI,未完成,
+GETS,市场,挂单上架,选定背包内一件物品 + 输入售价（≥ 1），生成挂单写入 market.json，物品从背包移出但仍属于卖家,已完成,P0-关键,#Create,业务规则：同一不可堆叠物品不能重复挂单；保留 instance_state,29,MINGJIN LI,已完成,MarketService.create_listing + CLI 上架入口；成功保存 players/market
+GETS,市场,撤销挂单,卖家撤销自己的活跃挂单，物品退回背包，挂单状态置 cancelled,已完成,P0-关键,#Update,listing lifecycle 不反转；撤销失败保持 active,30,MINGJIN LI,已完成,MarketService.cancel_listing 退回背包并设置 closed_at；CLI 不再直接改 status
 GETS,市场,浏览全部挂单,展示所有 active 挂单（卖家 / 物品 / 售价 / 上架时间）,已完成,P0-关键,#Read,当前展示前 20 条并提示剩余数量,31,MINGJIN LI,已完成,MarketService.list_active + CLI 浏览入口
-GETS,市场,按价格区间查询,输入最低价 / 最高价，使用 BST 范围查询返回符合条件挂单,已规划,P0-关键,#Structure-BST #Search,当前 CLI 查询入口可用，但服务实现为线性扫描；BST 演示点未完成,32,MINGJIN LI,未完成,MarketService.query_by_price_range + CLI 查询入口已具备基础功能
-GETS,市场,按物品分类筛选,输入分类路径筛选挂单（先查物品分类树、再过滤挂单）,已规划,P1-重要,#Structure-Tree,,33,MINGJIN LI,未完成,
-GETS,市场,按卖家筛选,输入 player_id 查看其所有 active 挂单,已规划,P1-重要,#Read,,34,MINGJIN LI,未完成,
+GETS,市场,按价格区间查询,输入最低价 / 最高价，使用 BST 范围查询返回符合条件挂单,已完成,P0-关键,#Structure-BST #Search,使用自实现 PriceBST，重复价格同节点列表保存,32,MINGJIN LI,已完成,MarketService.query_by_price_range + PriceBST.range_query + CLI 查询入口
+GETS,市场,按物品分类筛选,输入分类路径筛选挂单（先查物品分类树、再过滤挂单）,已完成,P1-重要,#Structure-Tree,通过 CatalogTree 校验分类路径，再按 Item.category 过滤 active listing,33,MINGJIN LI,已完成,MarketService.query_by_category + CLI 分类筛选入口
+GETS,市场,按卖家筛选,输入 player_id 查看其所有 active 挂单,已完成,P1-重要,#Read,,34,MINGJIN LI,已完成,MarketService.query_by_seller 已校验玩家存在并只返回 active listing
 GETS,市场,挂单排序,按价格升降序 / 上架时间排序展示,已完成,P1-重要,#Sort,,35,MINGJIN LI,已完成,MarketService.list_active(sort_by, desc) + CLI 排序入口
-GETS,市场,挂单详情,查看单条挂单详情：物品全字段 + 卖家昵称 + 历史价格参考,已规划,P1-重要,#Read,,36,MINGJIN LI,未完成,
-GETS,交易,购买物品,买家选定挂单 → 校验金币 → 扣买家加卖家 → 物品入买家背包 → 挂单置 sold → 写交易记录,已规划,P0-关键,#Transaction,事务式：任一步失败回滚,37,MINGJIN LI,未完成,
-GETS,交易,金币不足处理,买家金币 < 售价时抛 InsufficientGoldError 并友好提示，事务回滚,已规划,P0-关键,#Exception,自定义异常,38,MINGJIN LI,未完成,
-GETS,交易,自购拦截,买家与卖家是同一人时拒绝交易并提示,已规划,P0-关键,#Validation,,39,MINGJIN LI,未完成,
-GETS,交易,挂单失效拦截,目标挂单 status ≠ active 时抛 ListingNotActiveError,已规划,P0-关键,#Exception,,40,MINGJIN LI,未完成,
-GETS,交易,交易确认,购买前显示确认信息（买卖双方 / 物品 / 金额），输入 y 确认才执行,已规划,P1-重要,#UI,,41,MINGJIN LI,未完成,
-GETS,交易队列,挂单成交队列,管理员模式：批量结算待成交挂单（演示队列 FIFO 处理）,已规划,P1-重要,#Structure-Queue,使用自实现 Queue,42,MINGJIN LI,未完成,
+GETS,市场,挂单详情,查看单条挂单详情：物品全字段 + 卖家昵称 + 历史价格参考,已完成,P1-重要,#Read,复用 Item.describe 与 TransactionService 历史价格统计,36,MINGJIN LI,已完成,CLI 挂单详情展示 seller、item 基础字段/describe、instance_state、最近成交与 min/max/avg
+GETS,交易,购买物品,买家选定挂单 → 校验金币 → 扣买家加卖家 → 物品入买家背包 → 挂单置 sold → 写交易记录,已完成,P0-关键,#Transaction,事务式：任一步失败回滚,37,MINGJIN LI,已完成,MarketService.buy 原子更新金币/背包/listing/transaction；成功保存三类文件
+GETS,交易,金币不足处理,买家金币 < 售价时抛 InsufficientGoldError 并友好提示，事务回滚,已完成,P0-关键,#Exception,自定义异常,38,MINGJIN LI,已完成,InsufficientGoldError 分支不改变金币、背包、挂单、交易记录
+GETS,交易,自购拦截,买家与卖家是同一人时拒绝交易并提示,已完成,P0-关键,#Validation,,39,MINGJIN LI,已完成,SelfPurchaseError 分支不保存、不成交
+GETS,交易,挂单失效拦截,目标挂单 status ≠ active 时抛 ListingNotActiveError,已完成,P0-关键,#Exception,,40,MINGJIN LI,已完成,ListingNotActiveError 覆盖购买和撤销 inactive listing
+GETS,交易,交易确认,购买前显示确认信息（买卖双方 / 物品 / 金额），输入 y 确认才执行,已完成,P1-重要,#UI,,41,MINGJIN LI,已完成,CLI _buy_listing 显示买卖双方/物品/单价/总价，n 不改变状态
+GETS,交易队列,挂单成交队列,管理员模式：批量结算待成交挂单（演示队列 FIFO 处理）,已完成,P1-重要,#Structure-Queue,使用自实现 Queue；队列元素为 (listing_id, buyer_id),42,MINGJIN LI,已完成,MarketService.settle_pending buyer-aware FIFO；单条失败不中断后续；CLI 批量结算入口已接入
 GETS,历史与报表,玩家成交历史,查看指定玩家的全部成交记录（作为买家 + 作为卖家），按时间倒序,已完成,P1-重要,#Read,,43,LVZHEN ZHOU,已完成,TransactionService.by_player + CLI 展示
 GETS,历史与报表,物品成交历史,查看某个物品（按 item_id 或物品类型）的全部成交记录与价格走势,已完成,P1-重要,#Analytics,,44,LVZHEN ZHOU,已完成,TransactionService.by_item/by_category + CLI 双入口
 GETS,历史与报表,价格统计,对指定物品 / 类型计算最低 / 最高 / 平均成交价（递归遍历交易树或线性扫描）,已完成,P1-重要,#Analytics #Recursion,,45,LVZHEN ZHOU,已完成,TransactionService.price_stats/price_stats_by_category + CLI 双入口

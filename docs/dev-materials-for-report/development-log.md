@@ -577,4 +577,28 @@
 - **遗留问题**：
   - `MarketService` 仍需后续接入完整交易闭环；本轮只确保 ItemService / Inventory / CLI Items 的契约稳定。
 
+### [2026-05-06] MarketService 交易闭环与 Queue 批量结算补齐
+
+- **变更内容**：
+  - 实现 `MarketService.create_listing()`：上架时校验卖家/物品/价格/数量，拒绝破损或已装备物品，按 `item_id + instance_state` 从卖家背包精确移除，并创建 active listing。
+  - 实现 `MarketService.cancel_listing()`：仅卖家可撤销 active listing，成功时退回背包并设置 `closed_at`；背包满时保持 active 且不保存部分状态。
+  - 实现 `MarketService.buy()`：校验 active listing、买家/卖家、自购、金币、买家背包容量；成功后原子更新金币、背包、listing 状态和 append-only transaction。
+  - 新增 `PriceBST`，`query_by_price_range()` 改为使用自实现 BST 范围查询。
+  - 新增 `Queue`，`settle_pending()` 改为 buyer-aware FIFO 批量结算，订单格式为 `(listing_id, buyer_id)`，单条失败不阻断后续。
+  - CLI 市场菜单补齐上架、撤销、分类筛选、按卖家筛选、挂单详情、购买确认、管理员批量结算入口，不再直接修改 `listing.status`。
+  - 同步更新 `docs/services-interface.md`、`docs/data-design.md`、`docs/功能列表.csv` 与设计决策记录。
+- **原因**：
+  - Matthew 分支原有市场交易实现落后于 `dev`，且服务层仍有占位或不完整逻辑，无法满足功能列表中市场/交易 P0 项。
+  - 批量结算接口最初只接收 `listing_id`，这点上考虑不足：真实交易必须包含 `buyer_id`，否则无法校验金币/自购/背包容量，也无法生成合法交易记录。
+- **测试思路**：
+  - 市场服务测试改用小型内存仓库，精确断言每个失败路径不改变金币、背包、挂单状态或交易列表。
+  - 补强边界覆盖：缺失卖家/买家/物品/挂单、非法价格/数量/类型、堆叠数量不足、同 item_id 不同 `instance_state` 精确移除、create/cancel/buy 保存失败回滚。
+  - CLI 测试用输入序列覆盖上架、撤销、分类筛选、按卖家筛选、挂单详情、购买确认取消、购买成功、金币不足、批量结算。
+  - 数据结构测试单独覆盖 `PriceBST` 空查询、范围边界、重复价格，以及 `Queue` FIFO、空队列、重新入队。
+- **测试**：
+  - `tests/services/test_market_service.py tests/ui/test_cli.py tests/structures/test_price_bst.py tests/structures/test_queue.py`：**110 passed**
+  - 全量测试：**341 passed**
+- **遗留问题**：
+  - 文件级 JSON 持久化不是数据库事务；当前实现保证内存级 rollback，保存失败后的磁盘级原子性仍是 best-effort。
+
 <!-- 在此添加新条目 -->

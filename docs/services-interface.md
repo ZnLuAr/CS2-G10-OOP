@@ -204,8 +204,10 @@ class PlayerService:
         """
 
     def spend_gold(self, player_id: str, amount: int) -> None:
-        """扣金币（仅供 MarketService 内部调用）。# persists
+        """扣金币（单步玩家操作）。# persists # logs
         Raises: PlayerNotFoundError, InsufficientGoldError
+
+        注意：MarketService.buy() 不直接调用此方法；购买交易需要统一提交 players/market/transactions，避免单步 save 造成部分持久化。
         """
 
     # ===== 删除 =====
@@ -389,8 +391,11 @@ class MarketService:
         """
 
     # ===== 批量结算（管理员）=====
-    def settle_pending(self, listing_ids: list[str]) -> list[Transaction]:
-        """使用自实现 Queue（FIFO）批量处理。单条失败不影响其余。# persists # logs"""
+    def settle_pending(self, orders: list[tuple[str, str]]) -> list[Transaction]:
+        """使用自实现 Queue（FIFO）批量处理 buyer-aware 订单。
+
+        每个 tuple 为 (listing_id, buyer_id)，单条失败不影响其余。# persists # logs
+        """
 ```
 
 ---
@@ -449,10 +454,10 @@ UI (cli)
   │
   ├──▶ PlayerService ──▶ Persistence
   ├──▶ ItemService ────▶ Persistence
-  ├──▶ MarketService ──┬──▶ PlayerService.spend_gold / add_gold
+  ├──▶ MarketService ──┬──▶ PlayerService / TransactionService（查询与依赖注入）
   │                    ├──▶ Inventory.add / remove
-  │                    ├──▶ TransactionService.append
-  │                    └──▶ Persistence
+  │                    ├──▶ Repository players/listings/transactions（事务式内存提交）
+  │                    └──▶ Persistence（成功后统一保存）
   └──▶ TransactionService ──▶ Persistence
 
 所有模块 ──▶ logger.log
