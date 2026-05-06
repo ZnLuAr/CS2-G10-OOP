@@ -601,4 +601,26 @@
 - **遗留问题**：
   - 文件级 JSON 持久化不是数据库事务；当前实现保证内存级 rollback，保存失败后的磁盘级原子性仍是 best-effort。
 
+### [2026-05-06] 玩家管理 CLI CRUD 与详情聚合补齐
+
+- **变更内容**：
+  - 基于最新 `dev` 新建 `feat/player-develop`，未直接合入 `origin/jack_04`，因为 Jack 分支落后于当前 Items / Inventory / Market 基线，直接合并会回退大量已完成模块。
+  - 补强 `PlayerService` 测试：创建、ID 查询、名字搜索、排序、改名、金币增减、删除保护、保存调用和失败不变更状态。
+  - CLI 玩家菜单去除创建/修改/删除占位：新增创建玩家、修改玩家名、删除玩家的交互入口。
+  - 玩家列表支持按 ID、名字、金币升序/降序排序，并显示背包槽位数量。
+  - 玩家详情改为通过服务层聚合展示：基础信息、背包内容、活跃挂单、历史成交。
+  - 同步更新 `docs/功能列表.csv` 中玩家管理条目状态。
+- **原因**：
+  - 当前 `PlayerService` 已基本吸收 Jack 分支的服务层能力，但 CLI 仍保留多处“功能待 PlayerService 实现”的占位，功能列表中的玩家管理 P0/P1 项未完全落地。
+  - 玩家详情要求聚合多表查询，不能只展示基本字段和背包 item_id。
+- **测试思路**：
+  - 服务层使用记录型 persistence，断言成功路径调用 `save_players`，失败路径不保存且 repo 状态不变。
+  - 服务层补强 bool/非正数边界，避免 Python `bool` 被当作 `int` 写入金币、等级或金额。
+  - CLI 测试覆盖创建玩家、非法金币输入、列表背包槽位数量、修改昵称、非法改名、删除成功、删除取消、删除被背包/active listing 阻止、详情聚合背包/挂单/交易。
+  - 回归重点是删除玩家与 Market active listing、Inventory 背包非空规则的交互。
+- **测试**：
+  - `tests/services/test_player_service.py tests/ui/test_cli.py`：**83 passed**
+  - 聚焦回归：`tests/services/test_player_service.py tests/ui/test_cli.py tests/services/test_market_service.py tests/services/test_player_inventory_service.py`：**145 passed**
+  - 全量测试：**363 passed**
+
 <!-- 在此添加新条目 -->

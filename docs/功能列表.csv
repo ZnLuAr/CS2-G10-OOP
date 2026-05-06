@@ -8,13 +8,13 @@ GETS,主菜单,显示主菜单,展示所有顶级功能入口（玩家管理 / �
 GETS,主菜单,菜单导航,通过数字 / 字母选择菜单项，进入子菜单或退出,已完成,P0-关键,#UI,,7,LVZHEN ZHOU,已完成,src/ui/cli.py::TradingCLI._handle_main_choice + _prompt_choice
 GETS,主菜单,非法输入处理,用户输入非法选项时提示并重新显示菜单，不崩溃,已完成,P0-关键,#UI,自定义 InvalidInputError,8,LVZHEN ZHOU,已完成,src/ui/cli.py::run() 捕获 InvalidInputError 并重绘菜单
 GETS,主菜单,操作撤销,支持撤销上一步可逆操作（如取消挂单、误删物品），基于操作栈,已完成,P1-重要,#Structure-Stack,使用自实现 Stack；记录最近 N 步,9,LVZHEN ZHOU,已完成,src/ui/cli.py::OperationStack + _handle_undo
-GETS,玩家管理,创建玩家,输入玩家名 + 初始金币，生成 player_id 后保存到内存与文件,已规划,P0-关键,#CRUD,name 长度 1-20，gold ≥ 0,10,WEIJIE ZHOU,未完成,
-GETS,玩家管理,玩家列表,展示所有玩家（ID / 名 / 金币 / 背包数量），支持按金币 / 名字排序,已规划,P0-关键,#Read,排序使用通用比较函数,11,WEIJIE ZHOU,未完成,
-GETS,玩家管理,玩家详情,选定玩家后查看完整信息：基本属性 + 背包内容 + 挂单中物品 + 历史成交,已规划,P0-关键,#Read,聚合多表查询,12,WEIJIE ZHOU,未完成,
+GETS,玩家管理,创建玩家,输入玩家名 + 初始金币，生成 player_id 后保存到内存与文件,已完成,P0-关键,#CRUD,name 长度 1-20，gold ≥ 0,10,WEIJIE ZHOU,已完成,PlayerService.create_player + CLI 创建入口；支持 level/klass 默认值
+GETS,玩家管理,玩家列表,展示所有玩家（ID / 名 / 金币 / 背包数量），支持按金币 / 名字排序,已完成,P0-关键,#Read,排序使用 PlayerService.list_all(sort_by desc),11,WEIJIE ZHOU,已完成,CLI 列表支持 ID/名字/金币升降序，并显示背包槽位数量
+GETS,玩家管理,玩家详情,选定玩家后查看完整信息：基本属性 + 背包内容 + 挂单中物品 + 历史成交,已完成,P0-关键,#Read,聚合 PlayerInventoryService / MarketService / TransactionService,12,WEIJIE ZHOU,已完成,CLI 玩家详情展示基础信息、背包、活跃挂单、历史成交
 GETS,玩家管理,按 ID 查询玩家,输入 player_id 直接查询，使用哈希表 O(1) 查找,已完成,P0-关键,#Structure-HashMap,Repository.players dict O(1) 查找,13,WEIJIE ZHOU,已完成,PlayerService.get_by_id + CLI 查询入口
 GETS,玩家管理,按名字模糊查询,输入关键词搜索玩家昵称（包含匹配），返回匹配列表,已完成,P1-重要,#Search,线性扫描 O(n)；与哈希查询作对比写入报告,14,WEIJIE ZHOU,已完成,PlayerService.search_by_name + CLI 查询入口
-GETS,玩家管理,修改玩家信息,修改昵称（不允许改 ID 与金币）,已规划,P1-重要,#Update,,15,WEIJIE ZHOU,未完成,
-GETS,玩家管理,删除玩家,删除前校验：背包须为空、无活跃挂单；否则提示原因不予删除,已规划,P1-重要,#Delete,业务规则保护,16,WEIJIE ZHOU,未完成,
+GETS,玩家管理,修改玩家信息,修改昵称（不允许改 ID 与金币）,已完成,P1-重要,#Update,只允许 PlayerService.rename 修改 name,15,WEIJIE ZHOU,已完成,CLI 修改玩家名入口已接入；服务测试确认不改 ID/金币
+GETS,玩家管理,删除玩家,删除前校验：背包须为空、无活跃挂单；否则提示原因不予删除,已完成,P1-重要,#Delete,业务规则保护,16,WEIJIE ZHOU,已完成,PlayerService.delete 检查背包和 active listing；CLI 删除前二次确认
 GETS,玩家管理,金币充值（调试用）,管理员模式：手动给玩家加金币，方便测试买卖流程,已完成,P2-一般,#Debug,当前直接作为玩家菜单项提供，不再隐藏到 debug 菜单,17,WEIJIE ZHOU,已完成,PlayerService.add_gold + CLI 充值入口
 GETS,物品管理,物品列表,展示所有物品（含类型 / 稀有度 / 基础价值），支持按分类筛选,已完成,P0-关键,#Read,ItemService.list_all + CLI 分类浏览；Repository.items 为 Item 对象,18,JIAFENG YE,已完成,src/ui/cli.py 物品列表显示分类/稀有度/基础价值；分类浏览入口已接入
 GETS,物品管理,物品详情,查看单件物品的所有字段，含子类专属属性（武器攻击 / 防具防御 / 消耗品效果）,已完成,P0-关键,#Polymorphism,Item.describe() 多态展示子类关键字段,19,JIAFENG YE,已完成,Item.from_dict/to_dict + CLI 详情展示已接入

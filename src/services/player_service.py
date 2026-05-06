@@ -28,12 +28,13 @@ class PlayerService:
         self.repo = repo
         self.persistence = persistence
 
+
     def create_player(self, name: str, gold: int = 0,
                       level: int = 1, klass: str = "none") -> Player:
         self._validate_name(name)
-        if gold < 0:
+        if not isinstance(gold, int) or isinstance(gold, bool) or gold < 0:
             raise InvalidInputError(field="gold", value=gold)
-        if level < 1:
+        if not isinstance(level, int) or isinstance(level, bool) or level < 1:
             raise InvalidInputError(field="level", value=level)
         if klass not in _VALID_CLASSES:
             raise InvalidInputError(field="klass", value=klass)
@@ -52,17 +53,20 @@ class PlayerService:
         log.info("player", "created", player_id=player.player_id, name=player.name)
         return player
 
+
     def get_by_id(self, player_id: str) -> Player:
         player = self.repo.players.get(player_id)
         if player is None:
             raise PlayerNotFoundError(player_id=player_id)
         return player
 
+
     def search_by_name(self, keyword: str) -> list[Player]:
         needle = keyword.strip().lower()
         if not needle:
             return []
         return [p for p in self.repo.players.values() if needle in p.name.lower()]
+
 
     def list_all(self, sort_by: str = "id", desc: bool = False) -> list[Player]:
         players = list(self.repo.players.values())
@@ -76,6 +80,7 @@ class PlayerService:
             raise InvalidInputError(field="sort_by", value=sort_by)
         return sorted(players, key=key, reverse=desc)
 
+
     def rename(self, player_id: str, new_name: str) -> None:
         player = self.get_by_id(player_id)
         self._validate_name(new_name)
@@ -83,17 +88,19 @@ class PlayerService:
         self.persistence.save_players(self.repo)
         log.info("player", "renamed", player_id=player_id, new_name=player.name)
 
+
     def add_gold(self, player_id: str, amount: int) -> None:
         player = self.get_by_id(player_id)
-        if amount <= 0:
+        if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
             raise InvalidInputError(field="amount", value=amount)
         player.gold += amount
         self.persistence.save_players(self.repo)
         log.info("player", "gold_added", player_id=player_id, amount=amount)
 
+
     def spend_gold(self, player_id: str, amount: int) -> None:
         player = self.get_by_id(player_id)
-        if amount <= 0:
+        if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
             raise InvalidInputError(field="amount", value=amount)
         if player.gold < amount:
             raise InsufficientGoldError(required=amount, available=player.gold)
@@ -101,11 +108,8 @@ class PlayerService:
         self.persistence.save_players(self.repo)
         log.info("player", "gold_spent", player_id=player_id, amount=amount)
 
+
     def delete(self, player_id: str) -> None:
-        # TODO(perf): 检查活跃挂单当前是全量扫描 repo.listings
-        # 数据量大时应在 Repository 中维护 seller_id -> active_listing_ids 索引
-        # 详见 docs/dev-materials-for-report/development-log.md "性能遗留项 TODO"
-        # 如算法优化，以俟君子🙏
         player = self.get_by_id(player_id)
         if player.inventory:
             raise InventoryNotEmptyError(player_id=player_id)
@@ -116,6 +120,7 @@ class PlayerService:
         del self.repo.players[player_id]
         self.persistence.save_players(self.repo)
         log.info("player", "deleted", player_id=player_id)
+
 
     @staticmethod
     def _validate_name(name: str) -> None:

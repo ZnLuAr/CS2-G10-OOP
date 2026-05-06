@@ -48,7 +48,7 @@ Player ───持有───▶ Inventory ───包含───▶ Item
 | `name` | `str` | ✅ | 昵称，长度 1–20，允许重名（以 ID 为准） |
 | `gold` | `int` | ✅ | 当前金币（≥ 0） |
 | `level` | `int` | ✅ | 玩家等级（≥ 1，初始 1） |
-| `class` | `str` | ✅ | 职业（详见 §3.3） |
+| `klass` | `str` | ✅ | 职业（JSON 字段名为 `class`，Python 属性名使用 `klass` 避免关键字冲突；详见 §3.3） |
 | `inventory` | `list[InventorySlot]` | ✅ | 背包，详见 §4 |
 | `created_at` | `str` | ✅ | ISO 8601 时间戳 |
 
