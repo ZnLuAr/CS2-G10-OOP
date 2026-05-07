@@ -91,13 +91,13 @@ class TestOperationStack:
         assert stack.pop().name == "op2"
 
     def test_can_undo_reflects_state(self):
-        """can_undo() 正确反映栈状态"""
+        """is_empty() 正确反映栈状态"""
         stack = OperationStack()
-        assert not stack.can_undo()
+        assert stack.is_empty()
         stack.push(Operation(name="op", undo_fn=lambda: None))
-        assert stack.can_undo()
+        assert not stack.is_empty()
         stack.pop()
-        assert not stack.can_undo()
+        assert stack.is_empty()
 
 
 
@@ -170,12 +170,155 @@ class TestSubMenu:
     def test_player_list_display(self, fresh_cli, mock_input, capsys):
         """查看玩家列表"""
         # 1=玩家管理, 2=玩家列表, 回车继续, b=返回, 回车, 6=退出
-        mock_input("1", "2", "", "b", "", "6")
+        mock_input("1", "2", "1", "", "b", "", "6")
         fresh_cli.run()
 
         out = capsys.readouterr().out
-        # 检查玩家列表相关信息
-        assert len(out) > 0  # 有输出
+        assert "背包数量" in out
+
+    def test_player_list_displays_inventory_slot_count(self, fresh_cli, mock_input, capsys):
+        """玩家列表显示背包槽位数，而不是堆叠数量总和"""
+        player = fresh_cli.app.player_service.create_player("槽位玩家", gold=0)
+        player.inventory = [{"item_id": "i_potion", "count": 99}]
+
+        mock_input("1", "2", "1", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "槽位玩家" in out
+        assert "       1" in out
+        assert "      99" not in out
+
+    def test_player_create_display(self, fresh_cli, mock_input, capsys):
+        """创建玩家 CLI 成功路径"""
+        mock_input("1", "1", "CLI玩家", "50", "2", "mage", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        created = [p for p in fresh_cli.repo.players.values() if p.name == "CLI玩家"]
+        assert "已创建玩家" in out
+        assert len(created) == 1
+        assert created[0].gold == 50
+        assert created[0].level == 2
+        assert created[0].klass == "mage"
+
+    def test_player_rename_display(self, fresh_cli, mock_input, capsys):
+        """修改玩家名 CLI 成功路径"""
+        pid = next(iter(fresh_cli.repo.players))
+        mock_input("1", "6", pid, "新名字", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "改名为 新名字" in out
+        assert fresh_cli.repo.players[pid].name == "新名字"
+
+    def test_player_create_invalid_gold_display(self, fresh_cli, mock_input, capsys):
+        """创建玩家 CLI 对非法金币输入友好报错"""
+        before = fresh_cli.repo.players.to_dict()
+        mock_input("1", "1", "坏金币", "abc", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "输入错误" in out or "字段 初始金币" in out
+        assert fresh_cli.repo.players.to_dict() == before
+
+    def test_player_delete_display(self, fresh_cli, mock_input, capsys):
+        """删除玩家 CLI 成功路径"""
+        player = fresh_cli.app.player_service.create_player("待删除", gold=0)
+        mock_input("1", "7", player.player_id, "y", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "已删除玩家" in out
+        assert player.player_id not in fresh_cli.repo.players
+
+    def test_player_delete_cancel_does_not_delete(self, fresh_cli, mock_input, capsys):
+        """删除玩家确认 n 时不删除"""
+        player = fresh_cli.app.player_service.create_player("保留玩家", gold=0)
+        mock_input("1", "7", player.player_id, "n", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "已取消" in out
+        assert player.player_id in fresh_cli.repo.players
+
+    def test_player_delete_blocked_display(self, fresh_cli, mock_input, capsys):
+        """删除有背包物品的玩家会显示业务错误"""
+        pid = next(pid for pid, p in fresh_cli.repo.players.items() if p.inventory)
+        mock_input("1", "7", pid, "y", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "背包" in out
+        assert pid in fresh_cli.repo.players
+
+    def test_player_delete_blocked_by_active_listing_display(self, fresh_cli, mock_input, capsys):
+        """删除有活跃挂单的玩家会显示业务错误"""
+        player = fresh_cli.app.player_service.create_player("挂单玩家", gold=0)
+        item = fresh_cli.app.item_service.create_item({
+            "name": "删除阻止材料",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        player.inventory.append({"item_id": item.item_id, "count": 1})
+        fresh_cli.app.market_service.create_listing(player.player_id, item.item_id, 1, 10)
+
+        mock_input("1", "7", player.player_id, "y", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "活跃挂单" in out or "无法删除" in out
+        assert player.player_id in fresh_cli.repo.players
+
+    def test_player_rename_invalid_name_display(self, fresh_cli, mock_input, capsys):
+        """修改玩家名为空时不改名"""
+        pid = next(iter(fresh_cli.repo.players))
+        before = fresh_cli.repo.players[pid].name
+        mock_input("1", "6", pid, "", "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "字段 name" in out or "提示" in out
+        assert fresh_cli.repo.players[pid].name == before
+
+    def test_player_detail_aggregates_inventory_listings_and_transactions(self, fresh_cli, mock_input, capsys):
+        """玩家详情聚合基本信息、背包、活跃挂单与历史成交"""
+        from src.models import Transaction
+
+        player = fresh_cli.app.player_service.create_player("详情玩家", gold=100)
+        item = fresh_cli.app.item_service.create_item({
+            "name": "详情材料",
+            "category": "misc",
+            "rarity": "common",
+            "base_value": 1,
+            "stats": {"stack_size_max": 99, "count": 1},
+        })
+        player.inventory.append({"item_id": item.item_id, "count": 2})
+        listing = fresh_cli.app.market_service.create_listing(player.player_id, item.item_id, 1, 20)
+        fresh_cli.repo.transactions.append(Transaction(
+            transaction_id="t_player_detail",
+            listing_id=listing.listing_id,
+            buyer_id=player.player_id,
+            seller_id="p_other",
+            item_id=item.item_id,
+            count=1,
+            price=9,
+            total=9,
+            completed_at="2026-05-06T00:00:00Z",
+        ))
+
+        mock_input("1", "3", player.player_id, "", "b", "", "6")
+        fresh_cli.run()
+
+        out = capsys.readouterr().out
+        assert "详情玩家" in out
+        assert "详情材料" in out
+        assert listing.listing_id in out
+        assert "t_player_detail" not in out
+        assert "历史成交" in out
+        assert "[买]" in out
 
     def test_item_list_display(self, fresh_cli, mock_input, capsys):
         """查看物品列表"""
@@ -536,7 +679,7 @@ class TestUndoFunctionality:
     def test_undo_not_available_initially(self, fresh_cli):
         """初始状态无可撤销操作"""
         # 检查初始状态
-        assert not fresh_cli.op_stack.can_undo()
+        assert fresh_cli.op_stack.is_empty()
         assert len(fresh_cli.op_stack) == 0
 
     def test_undo_stack_integration(self, fresh_cli):
@@ -550,7 +693,7 @@ class TestUndoFunctionality:
             return fn
 
         stack.push(Operation(name="test_op", undo_fn=make_undo_fn("undo1")))
-        assert stack.can_undo()
+        assert not stack.is_empty()
 
         op = stack.pop()
         op.undo_fn()

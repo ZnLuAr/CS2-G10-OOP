@@ -15,13 +15,17 @@ from __future__ import annotations
 
 from .catalog_tree import CatalogNode, CatalogTree
 from .doubly_linked_list import DoublyLinkedList
+from .hash_map import HashMap
 from .price_bst import PriceBST
 from .queue import Queue
+from .stack import Stack
 
 __all__ = [
     "CatalogNode",
     "CatalogTree",
     "DoublyLinkedList",
+    "HashMap",
     "PriceBST",
     "Queue",
+    "Stack",
 ]

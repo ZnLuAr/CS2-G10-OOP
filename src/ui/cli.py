@@ -11,9 +11,6 @@
     from src.ui.cli import run_cli
     App(ui_runner=run_cli).run()
 
-
-目前只是粗略地做一下 cli。如果想做得更精美的话可以直接邮箱告诉我（
-要不把 tui 也做了？（
 """
 
 from __future__ import annotations
@@ -24,75 +21,52 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable
 
 from src.errors import BusinessRuleError, InvalidInputError, TradingSystemError
+from src.structures import Stack
 
 if TYPE_CHECKING:
     from src.app import App
-
+    from src.models import Player
 
 __all__ = ["run_cli"]
-
-
 
 
 # -----------------------------------------------------------------------------
 # 操作撤销栈（功能 ID 9）
 # -----------------------------------------------------------------------------
 
+
+
+
 @dataclass
 class Operation:
     """可撤销的操作记录"""
-
     name: str                           # 操作名称（如"撤销挂单 l_001"）
     undo_fn: Callable[[], None]         # 撤销函数
     context: dict = field(default_factory=dict)  # 上下文数据（用于日志）
 
 
-class OperationStack:
-    """自实现 Stack，支持撤销最近 N 步可逆操作
-
-    要求的数据结构演示点：
-    - 后进先出（LIFO）语义：pop() 取最近 push 的操作
-    - 容量上限与淘汰策略：FIFO 淘汰最旧操作
-    """
-
-    def __init__(self, max_size: int = 20) -> None:
-        self._stack: list[Operation] = []
-        self._max_size = max_size
-
-    def push(self, op: Operation) -> None:
-        """压栈，超限时淘汰最早的操作（FIFO 淘汰）"""
-        if len(self._stack) >= self._max_size:
-            self._stack.pop(0)
-        self._stack.append(op)
-
-    def pop(self) -> Operation | None:
-        """弹栈，空栈返回 None"""
-        return self._stack.pop() if self._stack else None
-
-    def can_undo(self) -> bool:
-        """检查是否有可撤销的操作"""
-        return len(self._stack) > 0
-
-    def __len__(self) -> int:
-        return len(self._stack)
-
-
+# OperationStack 现在直接使用 structures.Stack
+OperationStack = Stack
 
 
 # -----------------------------------------------------------------------------
 # CLI 主类
 # -----------------------------------------------------------------------------
 
+
+
+
 class TradingCLI:
     """交易系统的命令行界面"""
+
+    _DETAIL_LIST_LIMIT = 10
 
     def __init__(self, app: App) -> None:
         self.app = app
         self.repo = app.repo
         self.persistence = app.persistence
-        self.op_stack = OperationStack(max_size=20)
+        self.op_stack: Stack = Stack(max_size=20)
 
-        # 初始化背包服务（后续 MarketService 也可复用）
         from src.services.player_inventory_service import PlayerInventoryService
         self.inventory_service = PlayerInventoryService(self.repo, self.persistence)
 
@@ -101,22 +75,20 @@ class TradingCLI:
     # 入口
     # -------------------------------------------------------------------------
 
+
     def run(self) -> None:
         """主菜单循环，直到用户选择退出"""
         while True:
             try:
                 self._clear_screen()
                 choice = self._show_main_menu()
-
                 if choice == "6" or choice.lower() == "q":
                     print("\n ……系统关闭…… \n\n")
                     break
                 if choice == "0":
                     self._handle_undo()
                     continue
-
                 self._handle_main_choice(choice)
-
             except InvalidInputError as e:
                 print(f"\n[输入错误] {e.message}")
                 self._pause()
@@ -133,6 +105,7 @@ class TradingCLI:
     # 菜单显示
     # -------------------------------------------------------------------------
 
+
     def _show_main_menu(self) -> str:
         """显示主菜单并返回用户选择"""
         print("\n" + "=" * 40)
@@ -145,14 +118,13 @@ class TradingCLI:
         print("  5. 历史与报表")
         print("  6. 保存并退出")
         print("-" * 40)
-        if self.op_stack.can_undo():
+        if not self.op_stack.is_empty():
             print(f"  0. 撤销上一步 ({len(self.op_stack)} 步可撤销)")
         print("=" * 40)
-
         return self._prompt_choice(
             "请输入选项",
             valid_choices={"1", "2", "3", "4", "5", "6", "q", "Q"}
-            | ({"0"} if self.op_stack.can_undo() else set())
+            | ({"0"} if not self.op_stack.is_empty() else set())
         )
 
 
@@ -172,7 +144,6 @@ class TradingCLI:
         print("-" * 40)
         print("  b. 返回主菜单")
         print("=" * 40)
-
         return self._prompt_choice(
             "请输入选项",
             valid_choices={"1", "2", "3", "4", "5", "6", "7", "8", "b", "B"}
@@ -193,7 +164,6 @@ class TradingCLI:
         print("-" * 40)
         print("  b. 返回主菜单")
         print("=" * 40)
-
         return self._prompt_choice(
             "请输入选项",
             valid_choices={"1", "2", "3", "4", "5", "6", "b", "B"}
@@ -213,7 +183,6 @@ class TradingCLI:
         print("-" * 40)
         print("  b. 返回主菜单")
         print("=" * 40)
-
         return self._prompt_choice(
             "请输入选项",
             valid_choices={"1", "2", "3", "4", "5", "b", "B"}
@@ -238,7 +207,6 @@ class TradingCLI:
         print("-" * 40)
         print("  b. 返回主菜单")
         print("=" * 40)
-
         return self._prompt_choice(
             "请输入选项",
             valid_choices={"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "b", "B"}
@@ -259,7 +227,6 @@ class TradingCLI:
         print("-" * 40)
         print("  b. 返回主菜单")
         print("=" * 40)
-
         return self._prompt_choice(
             "请输入选项",
             valid_choices={"1", "2", "3", "4", "5", "6", "b", "B"}
@@ -269,6 +236,7 @@ class TradingCLI:
     # -------------------------------------------------------------------------
     # 菜单处理
     # -------------------------------------------------------------------------
+
 
     def _handle_main_choice(self, choice: str) -> None:
         """根据主菜单选择进入对应子菜单"""
@@ -316,7 +284,7 @@ class TradingCLI:
     def _handle_player_choice(self, choice: str) -> None:
         """玩家管理子菜单选择界面"""
         if choice == "1":
-            print("\n[创建玩家] 功能待 PlayerService 实现")
+            self._create_player()
         elif choice == "2":
             self._show_player_list()
         elif choice == "3":
@@ -326,9 +294,9 @@ class TradingCLI:
         elif choice == "5":
             self._search_player_by_name()
         elif choice == "6":
-            print("\n[修改玩家] 功能待 PlayerService 实现")
+            self._rename_player()
         elif choice == "7":
-            print("\n[删除玩家] 功能待 PlayerService 实现")
+            self._delete_player()
         elif choice == "8":
             self._add_gold_debug()
         self._pause()
@@ -365,10 +333,10 @@ class TradingCLI:
             self._show_inventory_capacity()
         self._pause()
 
+
     def _show_inventory_sorted(self) -> None:
         """按稀有度排序查看背包"""
         pid = input("请输入玩家 ID：").strip()
-
         try:
             sorted_slots = self.inventory_service.get_sorted_view(pid, key="rarity")
             player = self.repo.players.get(pid)
@@ -378,7 +346,6 @@ class TradingCLI:
         except Exception as e:
             print(f"[提示] {getattr(e, 'message', str(e))}")
             return
-
         print(f"\n玩家 {player.name} 的背包（按稀有度排序）：")
         print("-" * 40)
         if not sorted_slots:
@@ -390,18 +357,19 @@ class TradingCLI:
         info = self.inventory_service.get_capacity_info(pid)
         print(f"  已用槽位：{info['used']} / {info['capacity']}")
 
+
     def _remove_item_from_inventory(self) -> None:
         """从背包移除物品"""
         pid = input("请输入玩家 ID：").strip()
         item_id = input("请输入要移除的物品 ID：").strip()
         count_str = input("请输入移除数量（默认 1）：").strip()
         count = int(count_str) if count_str.isdigit() else 1
-
         try:
             self.inventory_service.remove_item(pid, item_id, count)
             print(f"[成功] 已从背包移除 {count} 个 {item_id}")
         except Exception as e:
             print(f"[提示] {getattr(e, 'message', str(e))}")
+
 
     def _add_item_to_inventory(self) -> None:
         """向背包添加物品（管理员调试用）"""
@@ -409,7 +377,6 @@ class TradingCLI:
         item_id = input("请输入要添加的物品 ID：").strip()
         count_str = input("请输入添加数量（默认 1）：").strip()
         count = int(count_str) if count_str.isdigit() else 1
-
         try:
             self.inventory_service.add_item(pid, item_id, count)
             item = self.repo.items.get(item_id)
@@ -418,10 +385,10 @@ class TradingCLI:
         except Exception as e:
             print(f"[提示] {getattr(e, 'message', str(e))}")
 
+
     def _show_inventory_capacity(self) -> None:
         """显示背包容量信息"""
         pid = input("请输入玩家 ID：").strip()
-
         try:
             info = self.inventory_service.get_capacity_info(pid)
             player = self.repo.players.get(pid)
@@ -431,7 +398,6 @@ class TradingCLI:
         except Exception as e:
             print(f"[提示] {getattr(e, 'message', str(e))}")
             return
-
         print(f"\n玩家 {player.name} 的背包容量：")
         print(f"  总容量：{info['capacity']}")
         print(f"  已用槽位：{info['used']}")
@@ -488,7 +454,6 @@ class TradingCLI:
             print("\n[提示] 没有可撤销的操作")
             self._pause()
             return
-
         try:
             op.undo_fn()
             print(f"\n[撤销成功] 已撤销：{op.name}")
@@ -501,36 +466,114 @@ class TradingCLI:
     # 功能实现
     # -------------------------------------------------------------------------
 
+
+    def _create_player(self) -> None:
+        """创建玩家"""
+        name = input("玩家名：").strip()
+        gold = self._prompt_int_with_default("初始金币", 0)
+        level = self._prompt_int_with_default("初始等级", 1)
+        klass = input("职业（warrior/archer/mage/summon/none，默认 none）：").strip() or "none"
+        try:
+            player = self.app.player_service.create_player(name, gold=gold, level=level, klass=klass)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+        print(f"[成功] 已创建玩家：{player.name} ({player.player_id})，金币 {player.gold}，等级 {player.level}，职业 {player.klass}")
+
+
     def _show_player_list(self) -> None:
         """显示玩家列表"""
-        players = self.app.player_service.list_all()
+        sort_choice = input("排序方式（1=ID, 2=名字, 3=金币降序, 4=金币升序，默认 1）：").strip() or "1"
+        if sort_choice == "1":
+            players = self.app.player_service.list_all(sort_by="id")
+        elif sort_choice == "2":
+            players = self.app.player_service.list_all(sort_by="name")
+        elif sort_choice == "3":
+            players = self.app.player_service.list_all(sort_by="gold", desc=True)
+        elif sort_choice == "4":
+            players = self.app.player_service.list_all(sort_by="gold")
+        else:
+            raise InvalidInputError(field="sort_by", value=sort_choice)
         print(f"\n共有 {len(players)} 名玩家：")
-        print("-" * 50)
-        print(f"{'ID':<10} {'名字':<12} {'金币':>8} {'等级':>4}")
-        print("-" * 50)
+        print("-" * 66)
+        print(f"{'ID':<10} {'名字':<12} {'金币':>8} {'等级':>4} {'背包数量':>8}")
+        print("-" * 66)
         for p in players:
-            print(f"{p.player_id:<10} {p.name:<12} {p.gold:>8} {p.level:>4}")
+            inventory_count = len(p.inventory)
+            print(f"{p.player_id:<10} {p.name:<12} {p.gold:>8} {p.level:>4} {inventory_count:>8}")
 
 
     def _show_player_detail(self) -> None:
-        """显示玩家详情"""
+        """显示玩家详情（聚合基本信息、背包、挂单、交易）"""
         pid = input("请输入玩家 ID：").strip()
-        player = self.repo.players.get(pid)
-        if not player:
-            print(f"[提示] 玩家 {pid} 不存在")
+        try:
+            player = self.app.player_service.get_by_id(pid)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
             return
-
-        print(f"\n{'='*40}")
+        print(f"\n{'='*60}")
         print(f"玩家：{player.name} ({player.player_id})")
-        print(f"{'='*40}")
+        print(f"{'='*60}")
+        self._print_player_basic_info(player)
+        self._print_player_inventory(pid)
+        self._print_player_listings(pid)
+        self._print_player_transactions(player.player_id)
+        print(f"{'='*60}")
+
+
+    def _print_player_basic_info(self, player: "Player") -> None:
         print(f"  金币：{player.gold}")
         print(f"  等级：{player.level}")
         print(f"  职业：{player.klass}")
-        print(f"  背包：{len(player.inventory)} 件物品")
-        if player.inventory:
-            for slot in player.inventory:
-                print(f"    - {slot.get('item_id', 'unknown')} x{slot.get('count', 1)}")
-        print(f"{'='*40}")
+        print(f"  创建时间：{player.created_at or '-'}")
+
+
+    def _print_player_inventory(self, pid: str) -> None:
+        print("\n背包内容：")
+        try:
+            slots = self.inventory_service.get_slots(pid)
+        except TradingSystemError as e:
+            print(f"  [提示] {e.message}")
+            slots = []
+        if not slots:
+            print("  （空）")
+        else:
+            for slot in slots:
+                print(f"  - {slot.get_display_name()} [{slot.get_rarity()}] x{slot.count}")
+
+
+    def _print_player_listings(self, pid: str) -> None:
+        listings = self.app.market_service.query_by_seller(pid)
+        print(f"\n活跃挂单：{len(listings)} 个")
+        if not listings:
+            print("  （无）")
+        else:
+            for listing in listings[:self._DETAIL_LIST_LIMIT]:
+                item_name = self._resolve_item_name(listing.item_id)
+                print(f"  - {listing.listing_id}: {item_name} x{listing.count} @ {listing.price}")
+            if len(listings) > self._DETAIL_LIST_LIMIT:
+                print(f"  ... 还有 {len(listings) - self._DETAIL_LIST_LIMIT} 个")
+
+
+    def _print_player_transactions(self, player_id: str) -> None:
+        txns = self.app.transaction_service.by_player(player_id)
+        print(f"\n历史成交：{len(txns)} 条")
+        if not txns:
+            print("  （无）")
+        else:
+            for txn in txns[:self._DETAIL_LIST_LIMIT]:
+                role = "买" if txn.buyer_id == player_id else "卖"
+                item_name = self._resolve_item_name(txn.item_id)
+                print(f"  - {txn.completed_at} [{role}] {item_name} x{txn.count} @ {txn.price} = {txn.total}")
+            if len(txns) > self._DETAIL_LIST_LIMIT:
+                print(f"  ... 还有 {len(txns) - self._DETAIL_LIST_LIMIT} 条")
+
+    def _resolve_item_name(self, item_id: str) -> str:
+        try:
+            item = self.app.item_service.get_by_id(item_id)
+            return item.name
+        except TradingSystemError:
+            return item_id
 
 
     def _query_player_by_id(self) -> None:
@@ -552,6 +595,40 @@ class TradingCLI:
             print(f"  {p.player_id}: {p.name} (金币 {p.gold})")
 
 
+    def _rename_player(self) -> None:
+        """修改玩家名"""
+        pid = input("请输入玩家 ID：").strip()
+        new_name = input("请输入新名字：").strip()
+        try:
+            old_name = self.app.player_service.get_by_id(pid).name
+            self.app.player_service.rename(pid, new_name)
+            player = self.app.player_service.get_by_id(pid)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+        print(f"[成功] 已将玩家 {pid} 从 {old_name} 改名为 {player.name}")
+
+
+    def _delete_player(self) -> None:
+        """删除玩家"""
+        pid = input("请输入要删除的玩家 ID：").strip()
+        try:
+            player = self.app.player_service.get_by_id(pid)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+        confirm = input(f"确认删除玩家 {player.name} ({player.player_id})？此操作不可撤销 (y/n)：").strip().lower()
+        if confirm != "y":
+            print("已取消")
+            return
+        try:
+            self.app.player_service.delete(pid)
+        except TradingSystemError as e:
+            print(f"[提示] {e.message}")
+            return
+        print(f"[成功] 已删除玩家 {player.name} ({player.player_id})")
+
+
     def _add_gold_debug(self) -> None:
         """金币充值（调试功能）"""
         pid = input("请输入玩家 ID：").strip()
@@ -560,7 +637,6 @@ class TradingCLI:
             amount = int(amount_str)
         except ValueError:
             raise InvalidInputError(field="amount", value=amount_str)
-
         self.app.player_service.add_gold(pid, amount)
         player = self.app.player_service.get_by_id(pid)
         print(f"[成功] 已为 {player.name} 充值 {amount} 金币，当前 {player.gold}")
@@ -587,7 +663,6 @@ class TradingCLI:
         except Exception:
             print(f"[提示] 物品 {iid} 不存在")
             return
-
         print(f"\n{'='*40}")
         print(f"物品：{item.name} ({iid})")
         print(f"{'='*40}")
@@ -615,14 +690,12 @@ class TradingCLI:
         root = self.app.item_service.browse_catalog("root")
         print("\n分类目录：")
         self._print_catalog_node(root)
-
         category = input("请输入分类路径（如 weapon / weapon.sword / misc，留空=root）：").strip() or "root"
         try:
             items = self.app.item_service.items_in_category(category)
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
             return
-
         print(f"\n分类 {category} 下共有 {len(items)} 件物品：")
         print("-" * 60)
         if not items:
@@ -633,6 +706,7 @@ class TradingCLI:
         if len(items) > 20:
             print(f"  ... 还有 {len(items) - 20} 件未显示")
 
+
     def _create_item(self) -> None:
         """创建物品（管理员）"""
         name = input("物品名称：").strip()
@@ -640,12 +714,10 @@ class TradingCLI:
         rarity = input("稀有度（common/uncommon/rare/epic/legendary）：").strip()
         base_value_str = input("基础价值：").strip()
         description = input("描述（可留空）：").strip()
-
         try:
             base_value = int(base_value_str)
         except ValueError:
             raise InvalidInputError(field="base_value", value=base_value_str)
-
         stats = self._prompt_item_stats(category)
         payload = {
             "name": name,
@@ -658,6 +730,7 @@ class TradingCLI:
         item = self.app.item_service.create_item(payload)
         print(f"[成功] 已创建物品：{item.name} ({item.item_id})")
 
+
     def _delete_item(self) -> None:
         """删除物品（管理员）"""
         item_id = input("请输入要删除的物品 ID：").strip()
@@ -666,13 +739,11 @@ class TradingCLI:
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
             return
-
         print(f"\n待删除物品：{item.describe()}")
         confirm = input(f"确认删除 {item.name} ({item.item_id})？此操作不可撤销 (y/n)：").strip().lower()
         if confirm != "y":
             print("已取消")
             return
-
         try:
             self.app.item_service.delete_item(item_id)
             print(f"[成功] 已删除物品 {item_id}")
@@ -680,6 +751,7 @@ class TradingCLI:
             print(f"[业务错误] {e.message}")
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
+
 
     def _print_catalog_node(self, node, depth: int = 0, path: str = "") -> None:
         current_path = node.key if node.key != "root" else "root"
@@ -690,6 +762,7 @@ class TradingCLI:
         print(f"{indent}- {node.label}{suffix}")
         for child in node.children:
             self._print_catalog_node(child, depth + 1, current_path)
+
 
     def _prompt_item_stats(self, category: str) -> dict:
         if category.startswith("weapon."):
@@ -755,6 +828,7 @@ class TradingCLI:
             }
         return {}
 
+
     def _prompt_consumable_stats(self) -> dict:
         return {
             "effect": input("效果：").strip(),
@@ -764,11 +838,13 @@ class TradingCLI:
             "count": self._prompt_optional_int("默认数量", 1),
         }
 
+
     def _prompt_class_req(self) -> list[str]:
         raw = input("职业要求（逗号分隔，可留空）：").strip()
         if not raw:
             return []
         return [part.strip() for part in raw.split(",") if part.strip()]
+
 
     def _prompt_int(self, label: str) -> int:
         raw = input(f"{label}：").strip()
@@ -776,6 +852,17 @@ class TradingCLI:
             return int(raw)
         except ValueError:
             raise InvalidInputError(field=label, value=raw)
+
+
+    def _prompt_int_with_default(self, label: str, default: int) -> int:
+        raw = input(f"{label}（默认 {default}）：").strip()
+        if not raw:
+            return default
+        try:
+            return int(raw)
+        except ValueError:
+            raise InvalidInputError(field=label, value=raw)
+
 
     def _prompt_optional_int(self, label: str, default: int | None) -> int | None:
         raw = input(f"{label}（可留空）：").strip()
@@ -785,6 +872,7 @@ class TradingCLI:
             return int(raw)
         except ValueError:
             raise InvalidInputError(field=label, value=raw)
+
 
     def _prompt_float(self, label: str) -> float:
         raw = input(f"{label}：").strip()
@@ -797,13 +885,11 @@ class TradingCLI:
     def _show_inventory(self) -> None:
         """查看玩家背包（使用 Inventory 双向链表顺序）"""
         pid = input("请输入玩家 ID：").strip()
-
         try:
             slots = self.inventory_service.get_slots(pid)
         except Exception as e:
             print(f"[提示] {getattr(e, 'message', str(e))}")
             return
-
         player = self.repo.players.get(pid)
         print(f"\n玩家 {player.name} 的背包：")
         print("-" * 40)
@@ -840,13 +926,11 @@ class TradingCLI:
         item_id = input("物品 ID：").strip()
         count = self._prompt_int("出售数量")
         price = self._prompt_int("单价")
-
         try:
             listing = self.app.market_service.create_listing(seller_id, item_id, count, price)
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
             return
-
         item = self.repo.items.get(listing.item_id)
         item_name = item.name if item else listing.item_id
         print(
@@ -864,21 +948,41 @@ class TradingCLI:
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
             return
-
         item = self.repo.items.get(listing.item_id)
         item_name = item.name if item else listing.item_id
         confirm = input(
-            f"确认撤销挂单 {lid}（{item_name} x{listing.count}）？此操作不可撤销 (y/n)："
+            f"确认撤销挂单 {lid}（{item_name} x{listing.count}）？(y/n)："
         ).strip().lower()
         if confirm != "y":
             print("已取消")
             return
+
+        # 记录撤销前快照，用于撤销操作
+        seller = self.app.player_service.get_by_id(listing.seller_id)
+        old_status = listing.status
+        old_closed_at = listing.closed_at
+        old_inventory = [dict(slot) for slot in seller.inventory]
 
         try:
             self.app.market_service.cancel_listing(lid, requester_id)
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
             return
+
+        # 成功取消后压栈
+        def undo_cancel():
+            listing.status = old_status
+            listing.closed_at = old_closed_at
+            seller.inventory = old_inventory
+            self.persistence.save_players(self.repo)
+            self.persistence.save_market(self.repo)
+
+        self.op_stack.push(Operation(
+            name=f"撤销挂单 {lid}",
+            undo_fn=undo_cancel,
+            context={"listing_id": lid, "seller_id": requester_id}
+        ))
+
         print(f"[成功] 已撤销挂单 {lid}，物品已退回卖家背包")
 
 
@@ -889,7 +993,6 @@ class TradingCLI:
             max_p = int(input("最高价格：").strip() or "999999")
         except ValueError:
             raise InvalidInputError(field="price", value="non-numeric")
-
         matches = self.app.market_service.query_by_price_range(min_p, max_p)
         print(f"\n价格区间 [{min_p}, {max_p}] 内有 {len(matches)} 个挂单：")
         for l in sorted(matches, key=lambda x: x.price)[:10]:
@@ -908,7 +1011,6 @@ class TradingCLI:
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
             return
-
         print(f"\n分类 {category} 下有 {len(matches)} 个活跃挂单：")
         for l in matches[:10]:
             item = self.repo.items.get(l.item_id)
@@ -926,7 +1028,6 @@ class TradingCLI:
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
             return
-
         seller = self.repo.players[seller_id]
         print(f"\n卖家 {seller.name} ({seller_id}) 有 {len(matches)} 个活跃挂单：")
         for l in matches[:10]:
@@ -946,7 +1047,6 @@ class TradingCLI:
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
             return
-
         item = self.repo.items.get(listing.item_id)
         item_name = item.name if item else listing.item_id
         total = listing.count * listing.price
@@ -967,12 +1067,10 @@ class TradingCLI:
         print(f"上架时间：{listing.created_at}")
         print(f"关闭时间：{listing.closed_at or '-'}")
         print(f"实例状态：{listing.instance_state or '-'}")
-
         history = self.app.transaction_service.by_item(listing.item_id)
         if not history:
             print("历史价格参考：暂无成交记录")
             return
-
         stats = self.app.transaction_service.price_stats(listing.item_id)
         print(
             f"历史价格参考：最低 {stats['min']} / 最高 {stats['max']} / "
@@ -997,7 +1095,6 @@ class TradingCLI:
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
             return
-
         item = self.repo.items.get(listing.item_id)
         item_name = item.name if item else listing.item_id
         total = listing.count * listing.price
@@ -1011,7 +1108,6 @@ class TradingCLI:
         if confirm != "y":
             print("已取消")
             return
-
         try:
             txn = self.app.market_service.buy(lid, buyer_id)
         except TradingSystemError as e:
@@ -1033,11 +1129,9 @@ class TradingCLI:
                 print("[提示] 格式应为：listing_id buyer_id")
                 continue
             orders.append((parts[0], parts[1]))
-
         if not orders:
             print("未输入待结算订单")
             return
-
         txns = self.app.market_service.settle_pending(orders)
         print(f"[完成] 成功结算 {len(txns)} / {len(orders)} 条订单")
         for txn in txns:
@@ -1047,7 +1141,6 @@ class TradingCLI:
     def _sort_listings(self) -> None:
         """排序展示挂单"""
         sort_by = input("排序方式 (1=价格升序, 2=价格降序, 3=时间升序, 4=时间降序)：").strip()
-
         if sort_by == "1":
             sorted_list = self.app.market_service.list_active(sort_by="price", desc=False)
         elif sort_by == "2":
@@ -1058,7 +1151,6 @@ class TradingCLI:
             sorted_list = self.app.market_service.list_active(sort_by="created_at", desc=True)
         else:
             raise InvalidInputError(field="sort_by", value=sort_by)
-
         print(f"\n排序后前 10 个挂单：")
         for l in sorted_list[:10]:
             item = self.repo.items.get(l.item_id)
@@ -1102,7 +1194,6 @@ class TradingCLI:
             category = input("请输入类型/分类（如 weapon / weapon.sword / misc）：").strip()
             txns = self.app.transaction_service.by_category(category)
             title = f"分类成交历史：{category}"
-
         print(f"\n{title}（共 {len(txns)} 条）：")
         print("-" * 100)
         if not txns:
@@ -1136,7 +1227,6 @@ class TradingCLI:
         except InvalidInputError:
             print("\n该物品/类型暂无成交数据")
             return
-
         print(f"\n价格统计：{label}")
         print("-" * 40)
         print(f"  成交次数：{stats['count']}")
@@ -1173,7 +1263,6 @@ class TradingCLI:
     def _show_system_snapshot(self) -> None:
         """系统数据快照"""
         snap = self.app.transaction_service.snapshot()
-
         print(f"\n{'='*40}")
         print("           系统数据快照")
         print(f"{'='*40}")
@@ -1187,6 +1276,7 @@ class TradingCLI:
     # -------------------------------------------------------------------------
     # 工具方法
     # -------------------------------------------------------------------------
+
 
     def _prompt_choice(self, prompt: str, valid_choices: set[str]) -> str:
         """提示用户输入并校验合法性"""
@@ -1212,11 +1302,10 @@ class TradingCLI:
             pass
 
 
-
-
 # -----------------------------------------------------------------------------
 # 入口函数
 # -----------------------------------------------------------------------------
+
 
 def run_cli(app: App) -> None:
     """CLI 入口，由 App.ui_runner 调用"""

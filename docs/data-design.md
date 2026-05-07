@@ -16,6 +16,21 @@
 - **可扩展性**：新增物品类型 / 字段时不破坏既有逻辑
 - **数据契约稳定**：JSON 字段命名一旦发布，不轻易破坏向后兼容
 
+### 1.1 自实现数据结构映射
+
+系统中所有自实现数据结构均已深度整合到业务逻辑：
+
+| 数据结构 | 实现位置 | 使用场景 |
+|---------|---------|---------|
+| **HashMap** | `src/structures/hash_map.py` | `Repository.players/items/listings` 的 ID 索引，O(1) 查找 |
+| **DoublyLinkedList** | `src/structures/doubly_linked_list.py` | `Inventory._slots` 背包槽位管理，保持插入顺序 |
+| **Stack** | `src/structures/stack.py` | CLI 操作撤销栈（`TradingCLI.op_stack`），LIFO 语义 |
+| **Queue** | `src/structures/queue.py` | `MarketService.settle_pending()` 批量结算，FIFO 处理 |
+| **CatalogTree** | `src/structures/catalog_tree.py` | 物品分类目录树，递归遍历与路径查找 |
+| **PriceBST** | `src/structures/price_bst.py` | `MarketService.query_by_price_range()` 价格区间查询 |
+
+**注意**：`HashMap` 提供类似 Python `dict` 的接口（`get/keys/values/items/__getitem__` 等），但底层使用单独链地址法实现。JSON 序列化时转为普通 list/dict，持久化格式不变。
+
 ---
 
 ## 2. 实体关系总览
@@ -48,7 +63,7 @@ Player ───持有───▶ Inventory ───包含───▶ Item
 | `name` | `str` | ✅ | 昵称，长度 1–20，允许重名（以 ID 为准） |
 | `gold` | `int` | ✅ | 当前金币（≥ 0） |
 | `level` | `int` | ✅ | 玩家等级（≥ 1，初始 1） |
-| `class` | `str` | ✅ | 职业（详见 §3.3） |
+| `klass` | `str` | ✅ | 职业（JSON 字段名为 `class`，Python 属性名使用 `klass` 避免关键字冲突；详见 §3.3） |
 | `inventory` | `list[InventorySlot]` | ✅ | 背包，详见 §4 |
 | `created_at` | `str` | ✅ | ISO 8601 时间戳 |
 

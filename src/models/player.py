@@ -1,8 +1,6 @@
 """Player 数据模型（字段容器 + JSON 互转）。
 
 字段定义见 docs/data-design.md §3。
-本类目前只承载字段；业务方法（add_gold / spend_gold / 删除前校验等）
-留待 ``services/player_service.py`` 的负责人实现。
 """
 
 from __future__ import annotations
@@ -11,7 +9,6 @@ from dataclasses import dataclass, field
 
 __all__ = ["Player"]
 
-# from src.errors import InsufficientGoldError, InvalidInputError
 from ..errors.validation import InvalidInputError
 from ..errors.trade import InsufficientGoldError
 
@@ -23,7 +20,7 @@ class Player:
     gold: int
     level: int
     klass: str                              # JSON 字段名为 'class'，Python 关键字回避
-    inventory: list[dict] = field(default_factory=list)  # 暂为 dict 列表，等 InventorySlot 落地
+    inventory: list[dict] = field(default_factory=list)
     created_at: str = ""
 
     def add_gold(self, amount: int) -> None:
@@ -42,7 +39,7 @@ class Player:
                 self.gold -= amount
 
     def can_be_deleted(self) -> bool:
-        if self.inventory:  # It still has items in bags
+        if self.inventory:
             return False
         else:
             return True
