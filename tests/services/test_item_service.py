@@ -120,7 +120,7 @@ def test_create_item_negative_base_value_raises(service):
 
 
 def test_create_item_non_leaf_category_raises_invalid_input(service):
-    before_items = dict(service.repo.items)
+    before_items = service.repo.items.to_dict()
     payload = {
         "name": "非叶子分类",
         "category": "weapon",
@@ -133,11 +133,11 @@ def test_create_item_non_leaf_category_raises_invalid_input(service):
         service.create_item(payload)
 
     assert exc.value.context["field"] == "category"
-    assert service.repo.items == before_items
+    assert service.repo.items.to_dict() == before_items
 
 
 def test_create_item_bad_stats_raise_serialization_error_without_mutating(service):
-    before_items = dict(service.repo.items)
+    before_items = service.repo.items.to_dict()
     payload = {
         "name": "坏 stats",
         "category": "weapon.sword",
@@ -149,7 +149,7 @@ def test_create_item_bad_stats_raise_serialization_error_without_mutating(servic
     with pytest.raises(SerializationError):
         service.create_item(payload)
 
-    assert service.repo.items == before_items
+    assert service.repo.items.to_dict() == before_items
 
 
 def test_items_in_category_invalid_category_raises(service):
@@ -230,12 +230,22 @@ def test_delete_item_with_inventory_reference_raises(service):
 
 
 def test_delete_item_with_active_listing_raises(service):
-    # 找一个被挂单引用的物品
+    # 找一个被挂单引用但不在任何玩家背包的物品
     for item_id in service.repo.items:
+        # 检查是否在背包中
+        in_inventory = any(
+            slot.get("item_id") == item_id
+            for player in service.repo.players.values()
+            for slot in player.inventory
+        )
+        if in_inventory:
+            continue
+
+        # 检查是否有活跃挂单
         for listing in service.repo.listings.values():
             if listing.item_id == item_id and listing.status == "active":
                 with pytest.raises(BusinessRuleError) as exc:
                     service.delete_item(item_id)
                 assert "listing" in exc.value.context["reason"]
                 return
-    pytest.skip("No active listing found for test")
+    pytest.skip("No active listing without inventory reference found for test")

@@ -31,7 +31,7 @@ from src.errors import (
 from src.models import Item, Listing, Player, Transaction
 from src.services import seed as _seed
 from src.services.logger import log
-from src.structures import CatalogNode, CatalogTree
+from src.structures import CatalogNode, CatalogTree, HashMap
 
 __all__ = ["Persistence", "Repository"]
 
@@ -46,9 +46,9 @@ __all__ = ["Persistence", "Repository"]
 class Repository:
     """加载后所有内存数据通过单一对象传递，详见 services-interface.md §4.2"""
 
-    players: dict[str, Player] = field(default_factory=dict)
-    items: dict[str, Item] = field(default_factory=dict)
-    listings: dict[str, Listing] = field(default_factory=dict)
+    players: HashMap = field(default_factory=HashMap)
+    items: HashMap = field(default_factory=HashMap)
+    listings: HashMap = field(default_factory=HashMap)
     transactions: list[Transaction] = field(default_factory=list)
     catalog: CatalogTree = field(default_factory=lambda: CatalogTree(CatalogNode("root", "全部")))
 
@@ -295,9 +295,9 @@ class Persistence:
     # =====================================================================
 
     @classmethod
-    def _index_items(cls, records: Iterable[dict]) -> dict[str, Item]:
-        """反序列化 Item 记录并建立索引"""
-        result: dict[str, Item] = {}
+    def _index_items(cls, records: Iterable[dict]) -> HashMap:
+        """反序列化 Item 记录并建立 HashMap 索引"""
+        result = HashMap()
         for rec in records:
             if not isinstance(rec, dict) or "item_id" not in rec:
                 raise SerializationError(entity="Item", raw=rec)
@@ -316,8 +316,8 @@ class Persistence:
 
     @classmethod
     def _index_models(cls, records: Iterable[dict], from_dict,
-                      id_attr: str, entity: str) -> dict[str, Any]:
-        result: dict[str, Any] = {}
+                      id_attr: str, entity: str) -> HashMap:
+        result = HashMap()
         for rec in records:
             obj = cls._build_model(rec, from_dict, entity)
             result[getattr(obj, id_attr)] = obj

@@ -136,12 +136,14 @@ class Persistence:
 ```python
 @dataclass
 class Repository:
-    players: dict[str, "Player"]          # HashMap: player_id → Player
-    items: dict[str, "Item"]              # HashMap: item_id → Item
-    listings: dict[str, "Listing"]        # HashMap: listing_id → Listing
+    players: HashMap[str, "Player"]       # 自实现 HashMap: player_id → Player
+    items: HashMap[str, "Item"]           # 自实现 HashMap: item_id → Item
+    listings: HashMap[str, "Listing"]     # 自实现 HashMap: listing_id → Listing
     transactions: list["Transaction"]     # append-only
     catalog: "CatalogTree"
 ```
+
+**注意**：`players/items/listings` 使用自实现的 `HashMap`（定义在 `src/structures/hash_map.py`），提供类似 Python `dict` 的 mapping 接口（`get/keys/values/items/__getitem__/__setitem__` 等），但底层使用单独链地址法实现。JSON 序列化时仍转为普通 list/dict 格式，持久化数据契约不变。
 
 ---
 

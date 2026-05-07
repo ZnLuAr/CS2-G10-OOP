@@ -637,4 +637,35 @@
   - `tests/services/test_player_service.py tests/ui/test_cli.py`：**83 passed**
   - 全量测试：**363 passed**
 
+### [2026-05-07] HashMap 与 Stack 接入生产代码，补齐数据结构真实使用
+
+- **变更内容**：
+  - 将 `src/structures/hash_map.py` 从死代码改造为通用 `HashMap` 类，提供类似 Python `dict` 的 mapping 接口（`get/put/pop/keys/values/items/__getitem__/__setitem__/__delitem__/__contains__/__iter__/__len__`），底层使用单独链地址法实现。
+  - `Repository.players/items/listings` 从原生 `dict` 改为 `HashMap`，让 ID 查找真正走自实现哈希表。
+  - 新增 `src/structures/stack.py` 通用 `Stack` 类，使用链表节点实现 LIFO 语义，支持可选容量上限与 FIFO 淘汰。
+  - CLI 中 `OperationStack` 改为直接使用 `structures.Stack`，删除局部实现。
+  - `_cancel_listing()` 成功取消挂单后压栈 `Operation`，记录恢复快照，使撤销功能真正可用（主菜单显示 `0. 撤销上一步`）。
+  - 补齐 `HashMap`、`Stack`、`DoublyLinkedList` 的完整单元测试，覆盖增删查改、碰撞、扩容、LIFO/FIFO、容量淘汰、非法输入等场景。
+  - 修正服务和 UI 测试中直接比较 `HashMap` 与 `dict` 的断言，改用 `to_dict()` 转换。
+  - 更新 `docs/services-interface.md`、`docs/data-design.md` 说明 `HashMap` 用于 `Repository` ID 索引、`Stack` 用于 CLI 撤销栈。
+- **原因**：
+  - 项目文档明确要求自实现数据结构深度整合到系统行为，而非独立 demo。当前 `hash_map` 是死代码，`OperationStack` 只在 CLI 中实例化且没有任何生产路径调用 `push()`，不符合功能列表中 `#Structure-HashMap`、`#Structure-Stack` 和数据结构测试 ID 57 的完成度要求。
+  - 最终报告需说明"所有结构都与系统行为深度整合"，当前状态无法支撑这一论述。
+- **测试思路**：
+  - `HashMap` 测试覆盖新 API（`put/get/pop/remove/clear/keys/values/items/to_dict/__setitem__/__getitem__/__delitem__/__contains__/__len__/__iter__`）、碰撞、扩容、非法 capacity，以及兼容旧 `hash_map` API。
+  - `Stack` 测试覆盖 LIFO、空栈、`peek`、`is_empty`、`clear`、容量淘汰、非法 max_size。
+  - `DoublyLinkedList` 测试覆盖尾部添加、迭代、查找、删除节点（头/尾/中间/唯一）、清空。
+  - 服务层测试修正 `HashMap` 比较断言，改用 `to_dict()` 转换后比较。
+  - CLI 测试修正 `can_undo()` 改为 `is_empty()`，保持语义一致。
+  - 回归重点是 `Repository` 从 `dict` 改为 `HashMap` 后，所有服务层和 UI 层的 `get/keys/values/items/__getitem__/__setitem__/__delitem__` 调用仍正常工作。
+- **测试**：
+  - `tests/structures/`：**76 passed**（新增 HashMap 22 个、Stack 11 个、DoublyLinkedList 13 个测试）
+  - `tests/services/test_persistence.py`：**20 passed**（验证 HashMap 序列化与 roundtrip）
+  - `tests/services/test_player_service.py tests/services/test_item_service.py tests/services/test_market_service.py`：**97 passed**
+  - `tests/ui/test_cli.py`：**60 passed**（包括撤销栈集成测试）
+  - 全量测试：**408 passed**
+- **遗留问题**：
+  - 撤销功能目前只接入了撤销挂单，其他可逆操作（如玩家改名、金币充值）暂未压栈，后续可扩展。
+  - `HashMap` 不是 `dict` 子类，某些需要 `isinstance(x, dict)` 的第三方库可能不兼容，但当前项目不依赖第三方库，无影响。
+
 <!-- 在此添加新条目 -->

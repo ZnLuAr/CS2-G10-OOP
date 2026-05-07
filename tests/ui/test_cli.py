@@ -91,13 +91,13 @@ class TestOperationStack:
         assert stack.pop().name == "op2"
 
     def test_can_undo_reflects_state(self):
-        """can_undo() 正确反映栈状态"""
+        """is_empty() 正确反映栈状态"""
         stack = OperationStack()
-        assert not stack.can_undo()
+        assert stack.is_empty()
         stack.push(Operation(name="op", undo_fn=lambda: None))
-        assert stack.can_undo()
+        assert not stack.is_empty()
         stack.pop()
-        assert not stack.can_undo()
+        assert stack.is_empty()
 
 
 
@@ -214,13 +214,13 @@ class TestSubMenu:
 
     def test_player_create_invalid_gold_display(self, fresh_cli, mock_input, capsys):
         """创建玩家 CLI 对非法金币输入友好报错"""
-        before = dict(fresh_cli.repo.players)
+        before = fresh_cli.repo.players.to_dict()
         mock_input("1", "1", "坏金币", "abc", "", "b", "", "6")
         fresh_cli.run()
 
         out = capsys.readouterr().out
         assert "输入错误" in out or "字段 初始金币" in out
-        assert fresh_cli.repo.players == before
+        assert fresh_cli.repo.players.to_dict() == before
 
     def test_player_delete_display(self, fresh_cli, mock_input, capsys):
         """删除玩家 CLI 成功路径"""
@@ -679,7 +679,7 @@ class TestUndoFunctionality:
     def test_undo_not_available_initially(self, fresh_cli):
         """初始状态无可撤销操作"""
         # 检查初始状态
-        assert not fresh_cli.op_stack.can_undo()
+        assert fresh_cli.op_stack.is_empty()
         assert len(fresh_cli.op_stack) == 0
 
     def test_undo_stack_integration(self, fresh_cli):
@@ -693,7 +693,7 @@ class TestUndoFunctionality:
             return fn
 
         stack.push(Operation(name="test_op", undo_fn=make_undo_fn("undo1")))
-        assert stack.can_undo()
+        assert not stack.is_empty()
 
         op = stack.pop()
         op.undo_fn()

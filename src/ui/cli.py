@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable
 
 from src.errors import BusinessRuleError, InvalidInputError, TradingSystemError
+from src.structures import Stack
 
 if TYPE_CHECKING:
     from src.app import App
@@ -44,40 +45,8 @@ class Operation:
     context: dict = field(default_factory=dict)  # 上下文数据（用于日志）
 
 
-
-
-class OperationStack:
-    """自实现 Stack，支持撤销最近 N 步可逆操作
-    要求的数据结构演示点：
-    - 后进先出（LIFO）语义：pop() 取最近 push 的操作
-    - 容量上限与淘汰策略：FIFO 淘汰最旧操作
-    """
-
-
-    def __init__(self, max_size: int = 20) -> None:
-        self._stack: list[Operation] = []
-        self._max_size = max_size
-
-
-    def push(self, op: Operation) -> None:
-        """压栈，超限时淘汰最早的操作（FIFO 淘汰）"""
-        if len(self._stack) >= self._max_size:
-            self._stack.pop(0)
-        self._stack.append(op)
-
-
-    def pop(self) -> Operation | None:
-        """弹栈，空栈返回 None"""
-        return self._stack.pop() if self._stack else None
-
-
-    def can_undo(self) -> bool:
-        """检查是否有可撤销的操作"""
-        return len(self._stack) > 0
-
-
-    def __len__(self) -> int:
-        return len(self._stack)
+# OperationStack 现在直接使用 structures.Stack
+OperationStack = Stack
 
 
 # -----------------------------------------------------------------------------
@@ -90,12 +59,13 @@ class OperationStack:
 class TradingCLI:
     """交易系统的命令行界面"""
 
+    _DETAIL_LIST_LIMIT = 10
 
     def __init__(self, app: App) -> None:
         self.app = app
         self.repo = app.repo
         self.persistence = app.persistence
-        self.op_stack = OperationStack(max_size=20)
+        self.op_stack: Stack = Stack(max_size=20)
 
         from src.services.player_inventory_service import PlayerInventoryService
         self.inventory_service = PlayerInventoryService(self.repo, self.persistence)
@@ -148,13 +118,13 @@ class TradingCLI:
         print("  5. 历史与报表")
         print("  6. 保存并退出")
         print("-" * 40)
-        if self.op_stack.can_undo():
+        if not self.op_stack.is_empty():
             print(f"  0. 撤销上一步 ({len(self.op_stack)} 步可撤销)")
         print("=" * 40)
         return self._prompt_choice(
             "请输入选项",
             valid_choices={"1", "2", "3", "4", "5", "6", "q", "Q"}
-            | ({"0"} if self.op_stack.can_undo() else set())
+            | ({"0"} if not self.op_stack.is_empty() else set())
         )
 
 
@@ -547,7 +517,7 @@ class TradingCLI:
         self._print_player_basic_info(player)
         self._print_player_inventory(pid)
         self._print_player_listings(pid)
-        self._print_player_transactions(pid, player.player_id)
+        self._print_player_transactions(player.player_id)
         print(f"{'='*60}")
 
 
@@ -578,25 +548,25 @@ class TradingCLI:
         if not listings:
             print("  （无）")
         else:
-            for listing in listings[:10]:
+            for listing in listings[:self._DETAIL_LIST_LIMIT]:
                 item_name = self._resolve_item_name(listing.item_id)
                 print(f"  - {listing.listing_id}: {item_name} x{listing.count} @ {listing.price}")
-            if len(listings) > 10:
-                print(f"  ... 还有 {len(listings) - 10} 个")
+            if len(listings) > self._DETAIL_LIST_LIMIT:
+                print(f"  ... 还有 {len(listings) - self._DETAIL_LIST_LIMIT} 个")
 
 
-    def _print_player_transactions(self, pid: str, player_id: str) -> None:
-        txns = self.app.transaction_service.by_player(pid)
+    def _print_player_transactions(self, player_id: str) -> None:
+        txns = self.app.transaction_service.by_player(player_id)
         print(f"\n历史成交：{len(txns)} 条")
         if not txns:
             print("  （无）")
         else:
-            for txn in txns[:10]:
+            for txn in txns[:self._DETAIL_LIST_LIMIT]:
                 role = "买" if txn.buyer_id == player_id else "卖"
                 item_name = self._resolve_item_name(txn.item_id)
                 print(f"  - {txn.completed_at} [{role}] {item_name} x{txn.count} @ {txn.price} = {txn.total}")
-            if len(txns) > 10:
-                print(f"  ... 还有 {len(txns) - 10} 条")
+            if len(txns) > self._DETAIL_LIST_LIMIT:
+                print(f"  ... 还有 {len(txns) - self._DETAIL_LIST_LIMIT} 条")
 
     def _resolve_item_name(self, item_id: str) -> str:
         try:
@@ -981,16 +951,38 @@ class TradingCLI:
         item = self.repo.items.get(listing.item_id)
         item_name = item.name if item else listing.item_id
         confirm = input(
-            f"确认撤销挂单 {lid}（{item_name} x{listing.count}）？此操作不可撤销 (y/n)："
+            f"确认撤销挂单 {lid}（{item_name} x{listing.count}）？(y/n)："
         ).strip().lower()
         if confirm != "y":
             print("已取消")
             return
+
+        # 记录撤销前快照，用于撤销操作
+        seller = self.app.player_service.get_by_id(listing.seller_id)
+        old_status = listing.status
+        old_closed_at = listing.closed_at
+        old_inventory = [dict(slot) for slot in seller.inventory]
+
         try:
             self.app.market_service.cancel_listing(lid, requester_id)
         except TradingSystemError as e:
             print(f"[提示] {e.message}")
             return
+
+        # 成功取消后压栈
+        def undo_cancel():
+            listing.status = old_status
+            listing.closed_at = old_closed_at
+            seller.inventory = old_inventory
+            self.persistence.save_players(self.repo)
+            self.persistence.save_market(self.repo)
+
+        self.op_stack.push(Operation(
+            name=f"撤销挂单 {lid}",
+            undo_fn=undo_cancel,
+            context={"listing_id": lid, "seller_id": requester_id}
+        ))
+
         print(f"[成功] 已撤销挂单 {lid}，物品已退回卖家背包")
 
 
