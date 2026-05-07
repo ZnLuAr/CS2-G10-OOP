@@ -24,6 +24,7 @@ from src.errors import BusinessRuleError, InvalidInputError, TradingSystemError
 
 if TYPE_CHECKING:
     from src.app import App
+    from src.models import Player
 
 __all__ = ["run_cli"]
 
@@ -533,7 +534,7 @@ class TradingCLI:
 
 
     def _show_player_detail(self) -> None:
-        """显示玩家详情"""
+        """显示玩家详情（聚合基本信息、背包、挂单、交易）"""
         pid = input("请输入玩家 ID：").strip()
         try:
             player = self.app.player_service.get_by_id(pid)
@@ -543,10 +544,21 @@ class TradingCLI:
         print(f"\n{'='*60}")
         print(f"玩家：{player.name} ({player.player_id})")
         print(f"{'='*60}")
+        self._print_player_basic_info(player)
+        self._print_player_inventory(pid)
+        self._print_player_listings(pid)
+        self._print_player_transactions(pid, player.player_id)
+        print(f"{'='*60}")
+
+
+    def _print_player_basic_info(self, player: "Player") -> None:
         print(f"  金币：{player.gold}")
         print(f"  等级：{player.level}")
         print(f"  职业：{player.klass}")
         print(f"  创建时间：{player.created_at or '-'}")
+
+
+    def _print_player_inventory(self, pid: str) -> None:
         print("\n背包内容：")
         try:
             slots = self.inventory_service.get_slots(pid)
@@ -558,30 +570,40 @@ class TradingCLI:
         else:
             for slot in slots:
                 print(f"  - {slot.get_display_name()} [{slot.get_rarity()}] x{slot.count}")
+
+
+    def _print_player_listings(self, pid: str) -> None:
         listings = self.app.market_service.query_by_seller(pid)
         print(f"\n活跃挂单：{len(listings)} 个")
         if not listings:
             print("  （无）")
         else:
             for listing in listings[:10]:
-                item = self.repo.items.get(listing.item_id)
-                item_name = item.name if item else listing.item_id
+                item_name = self._resolve_item_name(listing.item_id)
                 print(f"  - {listing.listing_id}: {item_name} x{listing.count} @ {listing.price}")
             if len(listings) > 10:
                 print(f"  ... 还有 {len(listings) - 10} 个")
+
+
+    def _print_player_transactions(self, pid: str, player_id: str) -> None:
         txns = self.app.transaction_service.by_player(pid)
         print(f"\n历史成交：{len(txns)} 条")
         if not txns:
             print("  （无）")
         else:
             for txn in txns[:10]:
-                role = "买" if txn.buyer_id == pid else "卖"
-                item = self.repo.items.get(txn.item_id)
-                item_name = item.name if item else txn.item_id
+                role = "买" if txn.buyer_id == player_id else "卖"
+                item_name = self._resolve_item_name(txn.item_id)
                 print(f"  - {txn.completed_at} [{role}] {item_name} x{txn.count} @ {txn.price} = {txn.total}")
             if len(txns) > 10:
                 print(f"  ... 还有 {len(txns) - 10} 条")
-        print(f"{'='*60}")
+
+    def _resolve_item_name(self, item_id: str) -> str:
+        try:
+            item = self.app.item_service.get_by_id(item_id)
+            return item.name
+        except TradingSystemError:
+            return item_id
 
 
     def _query_player_by_id(self) -> None:

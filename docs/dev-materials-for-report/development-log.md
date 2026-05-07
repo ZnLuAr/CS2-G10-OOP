@@ -623,4 +623,18 @@
   - 聚焦回归：`tests/services/test_player_service.py tests/ui/test_cli.py tests/services/test_market_service.py tests/services/test_player_inventory_service.py`：**145 passed**
   - 全量测试：**363 passed**
 
+### [2026-05-07] 玩家管理 CLI 结构优化与服务层校验抽取
+
+- **变更内容**：
+  - 根据代码评审，将 `_show_player_detail` 拆分为 `_print_player_basic_info`、`_print_player_inventory`、`_print_player_listings`、`_print_player_transactions` 与 `_resolve_item_name`。
+  - 玩家详情中物品名称改为通过 `item_service` 解析，避免 UI 层直接访问 `repo.items`。
+  - `PlayerService` 抽取非负 / 正整数校验辅助方法，复用到创建玩家、金币充值和金币消费入口。
+- **原因**：
+  - `_show_player_detail` 过长，拆分后更利于阅读、测试和后续维护。
+  - UI 层直接访问仓库内部字典会削弱分层一致性，使用服务层取物品更符合现有架构约束。
+  - 重复的整数边界校验容易漏掉 `bool` / 非整数输入，抽成辅助方法更稳妥。
+- **测试**：
+  - `tests/services/test_player_service.py tests/ui/test_cli.py`：**83 passed**
+  - 全量测试：**363 passed**
+
 <!-- 在此添加新条目 -->

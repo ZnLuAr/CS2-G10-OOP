@@ -32,10 +32,8 @@ class PlayerService:
     def create_player(self, name: str, gold: int = 0,
                       level: int = 1, klass: str = "none") -> Player:
         self._validate_name(name)
-        if not isinstance(gold, int) or isinstance(gold, bool) or gold < 0:
-            raise InvalidInputError(field="gold", value=gold)
-        if not isinstance(level, int) or isinstance(level, bool) or level < 1:
-            raise InvalidInputError(field="level", value=level)
+        self._validate_non_negative_int(gold, field="gold")
+        self._validate_positive_int(level, field="level")
         if klass not in _VALID_CLASSES:
             raise InvalidInputError(field="klass", value=klass)
 
@@ -91,8 +89,7 @@ class PlayerService:
 
     def add_gold(self, player_id: str, amount: int) -> None:
         player = self.get_by_id(player_id)
-        if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
-            raise InvalidInputError(field="amount", value=amount)
+        self._validate_positive_int(amount, field="amount")
         player.gold += amount
         self.persistence.save_players(self.repo)
         log.info("player", "gold_added", player_id=player_id, amount=amount)
@@ -100,8 +97,7 @@ class PlayerService:
 
     def spend_gold(self, player_id: str, amount: int) -> None:
         player = self.get_by_id(player_id)
-        if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
-            raise InvalidInputError(field="amount", value=amount)
+        self._validate_positive_int(amount, field="amount")
         if player.gold < amount:
             raise InsufficientGoldError(required=amount, available=player.gold)
         player.gold -= amount
@@ -120,6 +116,18 @@ class PlayerService:
         del self.repo.players[player_id]
         self.persistence.save_players(self.repo)
         log.info("player", "deleted", player_id=player_id)
+
+
+    @staticmethod
+    def _validate_non_negative_int(value: int, *, field: str) -> None:
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise InvalidInputError(field=field, value=value)
+
+
+    @staticmethod
+    def _validate_positive_int(value: int, *, field: str) -> None:
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            raise InvalidInputError(field=field, value=value)
 
 
     @staticmethod
