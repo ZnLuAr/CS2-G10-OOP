@@ -1,0 +1,409 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{booktabs} % For professional tables
+\usepackage{listings} % For code snippets
+\usepackage{xcolor}
+
+% --- Python Code Styling ---
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{codegreen},
+    stringstyle=\color{orange},
+    breaklines=true,
+    numbers=left,
+    numberstyle=\tiny\color{codegray},
+    frame=single
+}
+
+% --- Title Information ---
+
+
+
+\title{JC1503: Object-Oriented Programming \\ \huge Group Project: Game Inventory and Trading System}
+\author{Group [
+MINGJIN LI \and
+XINGZHOU PENG \and
+JIAFENG YE \and
+LVZHEN ZHOU \and
+WEIJIE ZHOU \and
+YUXI ZHU]}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% --- Requirement: Individual Contributions on First Page ---
+\section*{Individual Contributions}
+\begin{table}[h]
+    \centering
+    \begin{tabular}{l >{\raggedright\arraybackslash}p{5cm} >{\raggedright\arraybackslash}p{6cm}}
+        \toprule
+        \textbf{Member Name} & \textbf{Responsibilities} & \textbf{Technical Implementation} \\
+        \midrule
+        MINGJIN LI & Market and Trading & Execution and filtering of pending orders, Stack, Structure-BST, Structure-Tree and Transaction implementation \\
+        \midrule
+        XINGZHOU PENG & Inventory & Structure-Doublylinkedlist, Sorting Algorithm and Validation \\
+        \midrule
+        JIAFENG YE & Item Management & Item-Implementation(crud), Polymorphism, Structure-HashMap and Structure-Tree \\
+        \midrule
+        LVZHEN ZHOU & Overall Management, System Startup, Main Menu, History and Reports, Persistence, Test & File and Code Review, Data loading and Initialization, Entry and Exit, UI, Analytics, JSON Serialization, Save, Backups, Reset, Exception Management, Journal and so on  \\
+        \midrule
+        WEIJIE ZHOU & Player Management & Player System with CRUD, Read and Debug, Queue,  Structure-HashMap \\
+        \midrule
+        YUXI ZHU & Exceptions and Logs & Define the TradingSystemError Base Class, Standard Translation, Debug \\
+        \bottomrule
+    \end{tabular}
+    \caption{Summary of individual member responsibilities.}
+\end{table}
+
+\vfill
+
+\newpage
+
+% --- Section 1: Problem and System Design ---
+\section{Problem and System Design}
+\label{sec:problem_design}
+% Requirement: Real-world situation, main entities, and system structure.
+
+\subsection{Application Domain}
+
+\begin{itemize}
+    \item \textbf{Scenario Description}
+
+    This project is a \textbf{Minecraft-themed inventory and player trading system} that simulates how items are stored, organized, and exchanged between players in the open-world sandbox game Minecraft.
+
+    \item \textbf{Real-World Problem It Manages}
+
+    This system addresses the real-world problem of efficient personal asset tracking and secure peer-to-peer exchange of physical/digital goods. In real life, it directly translates:
+
+    \begin{itemize}
+        \item Personal inventory and asset management
+
+        \item Secure peer-to-peer barter and trading systems
+
+        \item Resource and supply tracking
+
+    \end{itemize}
+
+    \item \textbf{Summary}
+
+    In short, the Minecraft inventory and trading system is a simplified but realistic model that tracks personal possessions and facilitates fair, structured direct trade — a common logistical and economic problem in both digital and physical environments.
+
+\end{itemize}
+
+\subsection{System Architecture}
+
+\begin{itemize}
+    \item \textbf{Overall System Structure}
+
+This project follows a layered, object-oriented architecture defined up-front in \texttt{docs/data-design.md} and \texttt{docs/services-interface.md}. The system is divided into six cooperating components, each mapped to a single top-level package so responsibilities never blur:
+
+\vspace{1\baselineskip}
+(1) Domain Model Layer (\texttt{src/models/})
+
+This layer defines all core entities and their relationships using OOP principles:
+
+- Abstract base class \texttt{Item} with three behavioural mixins (\texttt{Durable}, \texttt{Equippable}, \texttt{Stackable}) and five polymorphic subclasses: \texttt{Weapon}, \texttt{Armor}, \texttt{Tool}, \texttt{Consumable}, \texttt{Misc};
+
+- Core domain entities: \texttt{Player}, \texttt{Listing} (market order), \texttt{Transaction} (completed trade record).
+
+\vspace{1\baselineskip}
+(2) Self-Implemented Data Structures Layer (\texttt{src/structures/})
+
+All six required data structures are implemented from scratch and deeply integrated with business logic:
+
+- \texttt{HashMap} (separate chaining) \(\rightarrow\) Repository ID index;
+- \texttt{Stack} (linked-list based) \(\rightarrow\) CLI undo stack;
+- \texttt{Queue} (linked-list based) \(\rightarrow\) FIFO batch settlement;
+- \texttt{DoublyLinkedList} \(\rightarrow\) Player inventory backing store;
+- \texttt{CatalogTree} \(\rightarrow\) Hierarchical item categories;
+- \texttt{PriceBST} \(\rightarrow\) Sorted price range query on market.
+
+\vspace{1\baselineskip}
+(3) Service Layer (\texttt{src/services/})
+
+This layer implements business logic through well-defined service interfaces:
+
+- \texttt{PlayerService}: manages player profile, gold balance, and CRUD;
+- \texttt{ItemService}: manages item catalog and category browsing;
+- \texttt{InventoryService} / \texttt{PlayerInventoryService}: handles item addition, removal, stacking, equipping, and capacity enforcement;
+- \texttt{MarketService}: supports listing, delisting, searching, and purchasing items;
+- \texttt{TransactionService}: records an immutable trade history and produces analytics;
+- \texttt{Persistence}: handles JSON load/save/seed/reset with integrity validation;
+- \texttt{logger}: provides unified structured logging.
+
+\vspace{1\baselineskip}
+(4) Exception Hierarchy Layer (\texttt{src/errors/})
+
+A three-level custom exception tree rooted at \texttt{TradingSystemError}, with three intermediate categories (\texttt{DataError}, \texttt{ValidationError}, \texttt{TradeError}) and 20 concrete exception classes. Service layer only raises; UI layer translates to user-friendly messages via a single \texttt{except TradingSystemError} handler.
+
+\vspace{1\baselineskip}
+(5) Persistence Layer (\texttt{data/})
+
+Stores state in five JSON files (\texttt{players.json}, \texttt{items.json}, \texttt{market.json}, \texttt{transactions.json}, \texttt{catalog.json}). On first run the system seeds a realistic dataset; subsequent runs load and update the existing data, with automatic backups before destructive operations.
+
+\vspace{1\baselineskip}
+(6) User Interaction Layer (\texttt{src/ui/})
+
+A command-line interface organised into domain-specific handlers (\texttt{PlayerHandler}, \texttt{ItemHandler}, \texttt{InventoryHandler}, \texttt{MarketHandler}, \texttt{ReportHandler}, \texttt{DataHandler}), driven by a central \texttt{TradingCLI} router. Validates input, calls service methods, catches typed exceptions, and formats output for the console.
+
+\vspace{1\baselineskip}
+    \item \textbf{How the User Interacts with the System}
+
+The user performs an action through the CLI menu; the handler calls the corresponding service method; the service validates business rules and modifies domain objects; changes are persisted to JSON; the system returns success or an error message. A typical purchase flow: User \(\rightarrow\) buy item \(\rightarrow\) MarketService validates listing and funds \(\rightarrow\) transfers item, updates gold, marks listing sold, creates Transaction \(\rightarrow\) persists \(\rightarrow\) shows result.
+
+\vspace{1\baselineskip}
+    \item \textbf{Why This Is a Coherent System, Not a Script}
+
+The system is not a linear script because (1) concerns are strictly separated into six layers (models, structures, services, errors, persistence, UI) with single-responsibility modules; (2) abstract classes, mixins, and polymorphic dispatch enable type-safe extension without modifying existing code; (3) every service exposes fixed, documented method signatures with explicitly labelled side-effects and typed exceptions; (4) six self-implemented data structures are composed inside domain and service classes to match real access patterns. These qualities — modularity, extensibility, statefulness — distinguish a designed system from a sequence of commands.
+
+\end{itemize}
+
+% --- Section 2: Technical Design ---
+\section{Technical Design}
+\label{sec:technical_design}
+% Requirement: OOP structure, Data Structures, and Algorithms.
+
+\subsection{Object-Oriented Modelling}
+\begin{itemize}
+    \item \textbf{Inheritance and Abstraction:}
+
+    The system implements strong abstraction and inheritance through a formal class hierarchy defined in the data model.
+
+    The core \textbf{abstract} class is Item, which acts as a base class for all in-game items and defines common properties, ranging from item\_id, name, category, rarity, base\_value, to\_dict(), from\_dict() to describe().
+
+    Five concrete subclasses \textbf{inherit} from Item:
+    \begin{itemize}
+        \item Weapon
+        \item Armor
+        \item Tool
+        \item Consumable
+        \item Misc
+    \end{itemize}
+
+    This inheritance structure centralises shared behaviour in the base class while allowing specialised attributes in subclasses. Abstraction also appears in service interfaces, where high-level methods hide internal implementation details such as data structure operations and persistence logic.
+
+    In parallel, the other domain entities — \texttt{Player}, \texttt{Listing}, and \texttt{Transaction} — are concrete classes with well-defined boundaries: each owns its own state, exposes only service-level mutation methods, and serialises cleanly to and from JSON via \texttt{to\_dict} / \texttt{from\_dict}. Together with \texttt{Item}, they form the complete domain model.
+
+
+    \item \textbf{Composition:}
+
+    Composition defines has-a relationships between entities, creating a cohesive and interconnected object graph.
+
+    Key compositional relationships include:
+    \begin{itemize}
+        \item A Player has an Inventory
+        \item An Inventory contains multiple Item instances
+        \item A Market Listing belongs to a Player and references an Item
+        \item A Transaction records a buyer, seller, and traded item
+    \end{itemize}
+
+    The inventory is implemented as a doubly linked list, and market listings use a binary search tree (BST) for sorted access. These data structures are composed inside service and domain classes, demonstrating how complex systems are built from independent, reusable objects.
+
+
+    \item \textbf{Encapsulation \& Polymorphism:}
+
+    \textbf{Encapsulation}
+
+    Encapsulation is achieved by bundling data and behaviour within classes while restricting direct external access to internal state.
+
+    All core entities — including Player, Inventory, Item, and Listing — store private fields such as gold, durability, stack size, and internal node references. These values are not modified directly from outside the class. Instead, modification occurs only through well-defined service methods such as:
+    \begin{itemize}
+        \item add\_item()
+        \item remove\_item()
+        \item spend\_gold()
+        \item update\_listing\_status()
+    \end{itemize}
+
+    This protects data integrity, enforces business rules, and prevents invalid state changes. The service layer further encapsulates complex workflows such as trading and inventory management.
+
+    \textbf{Polymorphism}
+
+    Polymorphism enables uniform treatment of different item types while preserving type-specific behaviour.
+
+    Since \texttt{Weapon}, \texttt{Armor}, \texttt{Tool}, \texttt{Consumable}, and \texttt{Misc} all inherit from the abstract \texttt{Item} class, the inventory, market, and transaction systems process them interchangeably through the shared interface (\texttt{to\_dict}, \texttt{from\_dict}, \texttt{describe}). The most consequential use of polymorphism is deserialisation: \texttt{Item.from\_dict} inspects the \texttt{category} field of a JSON record and dispatches to the appropriate subclass's constructor. As a result, \texttt{persistence.py} contains no \texttt{if category == "weapon"} branching — adding a new item type requires changes to \texttt{item.py} alone.
+
+    Behavioural mixins (\texttt{Durable}, \texttt{Equippable}, \texttt{Stackable}) add a second axis of polymorphism: weapons and tools share wear-and-tear semantics via \texttt{Durable}; consumables and misc items share stacking semantics via \texttt{Stackable}. This avoids the classical "diamond" problem of deep single-inheritance while still letting the inventory code ask \texttt{isinstance(item, Stackable)} to decide whether to merge slots.
+
+    \item \textbf{Custom Exception Hierarchy:}
+
+    Following the course requirement for custom exceptions, we defined a three-level tree rooted at \texttt{TradingSystemError} (every expected failure inherits from it), with three intermediate categories — \texttt{DataError} (persistence / serialisation), \texttt{ValidationError} (input / business rule), and \texttt{TradeError} (trade-specific) — and 20 concrete exception classes below them. Each exception carries two channels: a Chinese \texttt{message} for end users, and a structured \texttt{context} dict (\texttt{player\_id}, \texttt{listing\_id}, \texttt{ref\_id}, etc.) for logs and tests. The service layer only raises; the UI layer translates. This lets a single \texttt{except TradingSystemError} at the CLI boundary handle every expected error path uniformly, while any unexpected \texttt{Exception} is caught by an outer safety net so the program never crashes on a user action.
+
+\end{itemize}
+
+\subsection{Data Structures and Algorithms}
+
+The six self-implemented structures were chosen by matching algorithmic complexity to expected workload, not picked at random from the required list:
+
+\begin{table}[h]
+\small
+\begin{tabular}{p{2.8cm}p{1.8cm}p{8.5cm}}
+\toprule
+\textbf{Structure} & \textbf{Complexity} & \textbf{Why This Structure} \\
+\midrule
+Doubly Linked List & O(1) insert/delete & Inventory slot mutation without array shifting; preserves pickup order; enforces 50-slot capacity. A Python \texttt{list} would give O(n) for removal at arbitrary positions. \\
+Stack & O(1) push/pop & CLI undo history stores lightweight snapshots for responsive rollback without full data duplication. \\
+Queue & O(1) enqueue/dequeue & FIFO batch settlement; one failed trade does not block the queue, maintaining system stability. \\
+Tree & O(n) traversal & Two-level category hierarchy (\texttt{weapon.sword}); recursive \texttt{walk} yields items depth-first in three lines, matching user mental model. \\
+Binary Search Tree & O(log n) range & Market price filter: \texttt{range\_query(lo, hi)} prunes subtrees, yielding O(log n + k) for k results vs O(n) linear scan. The hottest path on the market screen. \\
+Hash Map & O(1) lookup & Repository indexes by \texttt{player\_id} / \texttt{item\_id} / \texttt{listing\_id}; every service pays this cost once, setting the floor on system responsiveness. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Algorithms and Recursion}
+
+Two algorithmic patterns are worth calling out explicitly:
+
+\textbf{Recursive catalog traversal.} \texttt{CatalogTree} represents items as a two-level tree (\texttt{root \(\rightarrow\) category \(\rightarrow\) subcategory}). Browsing a category recursively visits its subtree, yielding items in a depth-first order that matches how users mentally navigate menus. The recursion terminates at leaf nodes and carries no auxiliary data structure beyond the implicit call stack, keeping the implementation short and readable.
+
+\textbf{Range search on the price BST.} \texttt{PriceBST.range\_query(lo, hi)} prunes whole subtrees whose key ranges cannot possibly overlap \texttt{[lo, hi]}, yielding O(log n + k) time for k results — sharper than O(n) linear filtering on the listings list. This is the hottest path on the market screen and the one place where the self-implemented structure most clearly outperforms a built-in alternative.
+
+\textbf{Polymorphic deserialisation dispatch.} \texttt{Item.from\_dict} inspects a record's \texttt{category} field, looks up the corresponding subclass, and delegates construction to it. This pattern turns what could have been a tall \texttt{if / elif} chain into a single dictionary lookup, and it automatically absorbs any future item types added to the model layer.
+
+\vspace{1\baselineskip}
+% --- Section 3: Development and Testing ---
+\section{Development and Testing}
+\label{sec:dev_testing}
+% Requirement: Evolution, problems encountered, and testing evidence.
+
+\subsection{Iterative Development}
+
+The system was built incrementally over eight weeks using \textbf{GitHub} with a \texttt{main} / \texttt{dev} / \texttt{feat/*} branching model and pull-request review.
+
+\textbf{Iterations 1-2 — Contracts and Core Models.}
+We produced three design contracts (\texttt{data-design.md}, \texttt{services-interface.md}, \texttt{error-and-log-design.md}) before code, fixing entity fields, method signatures, and the exception tree. A \texttt{Repository} container let services share five in-memory stores without passing six arguments. Team members implemented in parallel against stubbed interfaces. We then built the \texttt{Item} abstract class with three mixins and five subclasses, plus the six self-implemented data structures, each paired with its consuming service. Tests were written alongside code.
+
+\textbf{Iteration 3 — Persistence and Integration.}
+A dedicated \texttt{Persistence} service replaced in-memory prototypes, adding \texttt{load\_all} / \texttt{save\_all} / \texttt{seed\_if\_empty} / \texttt{reset} and cross-entity integrity validation. \texttt{Item.from\_dict} became a polymorphic factory instantiating the correct subclass from the \texttt{category} field — a deliberate OOP showcase in the deserialisation path.
+
+\textbf{Iterations 4-5 — UI and Stabilisation.}
+The \texttt{TradingCLI} router and six handlers were built on the stable service layer. We enforced: services raise typed exceptions; only the UI translates them to Chinese. The final phase uncovered two blocking bugs (see §\ref{sec:dev_testing}.2), refactored the CLI into focused handlers, and back-filled UI tests from 0 to 133 cases, raising total coverage from 350 to 483 tests. All 61 feature-list items passed acceptance.
+
+\subsection{Problem Solving}
+
+Two significant defects surfaced during integration testing. Both were caught because the test suite reached across layers rather than stopping at unit boundaries — a direct payoff of the layered test strategy described in §\ref{sec:dev_testing}.3.
+
+\begin{itemize}
+    \item \textbf{Problem 1 — Infinite loop on malformed stack limit.}
+
+When an \texttt{Item}'s \texttt{stack\_size\_max} was loaded as \texttt{0} or a negative number (a realistic risk with hand-edited JSON or a buggy seed generator), \texttt{Inventory.add()} entered a non-terminating loop: the helper that splits an incoming quantity across slots never managed to consume any units because every attempted chunk was \(\leq 0\), so the outer \texttt{while remaining > 0} condition never advanced. The program appeared to freeze with no error, which is far worse than crashing — the user has nothing to react to.
+
+\textbf{Diagnosis.} A new boundary-case test in \texttt{test\_inventory.py} hung rather than failing, which immediately localised the issue. Adding a \texttt{print} of \texttt{remaining} inside the loop confirmed it was stuck at a constant value. Reviewing the split logic showed the invariant "each iteration reduces \texttt{remaining}" was silently violated whenever \texttt{stack\_size\_max \(\leq 0\)}.
+
+\textbf{Fix.} Rather than adding a loop-iteration cap (which would paper over the root cause), we added a pre-condition check at the top of \texttt{Inventory.add()}: if \texttt{stack\_size\_max} is non-positive, clamp it to \texttt{1}. This restores the loop invariant and makes the behaviour predictable. A regression test with pytest's \texttt{timeout} marker now guards the boundary cases.
+
+    \item \textbf{Problem 2 — Instance state lost during transfer.}
+
+When an item moved between players (via market purchase or admin transfer), the \texttt{PlayerInventoryService.transfer\_item()} call read only \texttt{item\_id} and \texttt{quantity} from the source slot and called \texttt{add\_item} on the destination with those two fields. Per-instance attributes stored on the slot — current durability, enchantment level, custom modifiers — were silently dropped, meaning a sword at 10/100 durability arrived at the buyer at 100/100.
+
+\textbf{Diagnosis.} A transaction round-trip test compared pre- and post-trade item snapshots and flagged the mismatch. The \texttt{remove\_item} path was also suspect: it filtered only by \texttt{item\_id} and removed the earliest matching slot, so even a state-preserving transfer could pick the wrong slot.
+
+\textbf{Fix.} \texttt{transfer\_item} now reads the full slot payload (including \texttt{instance\_state}) before removal and forwards it to \texttt{add\_item} on the destination. \texttt{remove\_item} accepts an optional slot identifier so callers that care about a specific physical slot can request it by reference. New tests verify that durability and modifiers survive a full \texttt{list \(\rightarrow\) buy \(\rightarrow\) deliver} flow.
+
+\end{itemize}
+
+Both fixes illustrate a shared lesson: when a bug survives unit tests, the problem is usually at a \emph{boundary} — between data formats, between layers, or between services. Integration tests catch what unit tests cannot by construction.
+
+\subsection{Testing Strategy}
+
+The test suite contains \textbf{483 passing tests} across 23 files, distributed roughly as: data structures (76), domain models (33), services (229), CLI / UI (133), and application bootstrap (12). Testing was written alongside code, not appended afterwards, and it directly influenced several design decisions — for example, the dependency-injection hooks on \texttt{App} exist so \texttt{KeyboardInterrupt} and \texttt{DataIntegrityError} paths can be exercised without simulating keyboard input.
+
+\begin{itemize}
+    \item \textbf{Unit Testing.}
+    Isolated tests verify individual methods and classes. Test classes are grouped by \emph{behavioural scenario} rather than by function name — for example, \texttt{test\_persistence.py} organises cases into \texttt{TestSeedIfEmpty}, \texttt{TestLoadAll}, \texttt{TestRoundTrip}, \texttt{TestIdCounters}, \texttt{TestIntegrityCheck}, \texttt{TestErrorPaths}, and \texttt{TestBackupAndReset}. This makes it easy to demonstrate coverage of a concern ("seven persistence scenarios") rather than of a surface area ("nineteen functions"). All file-system tests use pytest's \texttt{tmp\_path} fixture so they never touch the real \texttt{data/} directory.
+
+    \item \textbf{Module / Integration Testing.}
+    These tests verify that components cooperate correctly: that \texttt{MarketService.buy} atomically updates four entities (buyer gold, seller gold, inventory contents, listing status), that \texttt{Persistence.save \(\rightarrow\) load} is a true round-trip, and that every \texttt{Transaction} references live \texttt{Player} and \texttt{Item} IDs. Exception assertions check the \texttt{type} and the structured \texttt{context} dict rather than the user-facing message string, so UI copy changes do not cascade into test failures.
+
+    \item \textbf{System Testing.}
+    End-to-end tests drive the CLI through scripted input, covering the golden purchase flow (create player \(\rightarrow\) deposit gold \(\rightarrow\) list item \(\rightarrow\) buy \(\rightarrow\) verify transaction record \(\rightarrow\) persist \(\rightarrow\) reload \(\rightarrow\) verify state), the data-management sub-menu (immediate save, backup, reset), and error recovery (invalid input, missing records, insufficient funds). These tests catch cross-layer regressions that unit tests cannot see.
+
+    \item \textbf{Debugging-Driven Design.}
+    Several design refinements came directly from test failures: the \texttt{stack\_size\_max} clamp, the slot-level \texttt{transfer\_item} signature, the display cap on long report outputs (top 20 shown, "N more hidden"), and the separation of \texttt{Inventory} (structural operations on \texttt{DoublyLinkedList}) from \texttt{PlayerInventoryService} (business-rule orchestration) all emerged from tests that were painful to write against the original design. In each case, we changed the production code rather than the test — a sign the tests were exercising real weaknesses.
+
+\end{itemize}
+
+\vspace{1\baselineskip}
+% --- Section 4: Reflection ---
+\section{Reflection}
+\label{sec:reflection}
+% Requirement: Successes, limitations, and learning outcomes.
+
+\subsection{Critical Assessment}
+\begin{itemize}
+    \item \textbf{What the system does well}
+
+    \textbf{Clear entity relationships and a stable data contract.}
+    The five JSON files correspond one-to-one with the five core entities (\texttt{Player}, \texttt{Item}, \texttt{Listing}, \texttt{Transaction}, \texttt{Catalog}), with explicit ID prefixes (\texttt{p\_}, \texttt{i\_}, \texttt{l\_}, \texttt{t\_}) and a monotonically-increasing counter per type. Cross-entity references are validated on load, so an incomplete or tampered data file raises \texttt{DataIntegrityError} before any business code runs on it. This contract was fixed early via \texttt{data-design.md} and survived every subsequent iteration unchanged.
+
+    \textbf{Data structures chosen to match access patterns, not for demonstration.}
+    Each of the six self-implemented structures earns its place: \texttt{HashMap} for O(1) ID lookup in the repository, \texttt{PriceBST} for O(log n) range queries on market listings, \texttt{DoublyLinkedList} for O(1) slot-level mutation in the inventory, \texttt{CatalogTree} for recursive category browsing, \texttt{Stack} for the undo history, \texttt{Queue} for FIFO batch settlement. Rewriting the system on top of built-in \texttt{list} / \texttt{dict} would degrade both the price range query and the undo feature noticeably.
+
+    \textbf{Polymorphic deserialisation as a real OOP payoff.}
+    \texttt{Item.from\_dict} inspects the \texttt{category} field and dispatches to the correct subclass's constructor. \texttt{persistence.py} therefore contains no \texttt{if category == "weapon"} branches — the polymorphism is real, not decorative, and adding a sixth item type would touch only \texttt{item.py}.
+
+    \textbf{Disciplined separation between raising and translating exceptions.}
+    The service layer only raises typed exceptions; the UI layer is the sole place that translates them into Chinese user-facing messages. This pays off twice: service-layer tests assert on structured \texttt{context} dicts so UI copy tweaks do not cascade, and a single \texttt{except TradingSystemError} at the menu boundary handles every expected error uniformly.
+
+    \textbf{Tests that drove design, not just verified it.}
+    Several architectural choices — dependency-injected \texttt{ui\_runner}, slot-level \texttt{transfer\_item}, the \texttt{stack\_size\_max} clamp — exist because tests made them necessary. The 483 tests are not a post-hoc safety net; they shaped what the production code looks like.
+
+    \item \textbf{Current limitations}
+
+    \textbf{Documentation-implementation drift during the middle iterations.}
+    We wrote \texttt{services-interface.md} before most services existed, which was useful for parallelisation but created a lag: several method signatures diverged from the document, and the functions list briefly conflated "entry-point exists" with "fully implemented". A late-stage code-review pass resolved the drift, but a more disciplined team would keep docs and code in sync continuously.
+
+    \textbf{Flat-file persistence is a ceiling, not a floor.}
+    JSON was the right choice for this project — it kept the focus on self-implemented data structures rather than deferring to an SQL engine — but it will not scale beyond a few thousand records per file. Concurrent access, partial updates, and transactional multi-file writes all require workarounds. A real deployment would need at least SQLite.
+
+    \textbf{CLI-only interaction constrains what we can demonstrate.}
+    The terminal is fine for correctness demos but awkward for exploring large catalogs or multi-step trades. Pagination and display caps mitigate the problem; they do not solve it.
+
+    \textbf{No CI, no static type checking, no coverage gate.}
+    Tests run locally before commit. There is no automated check on merge, no \texttt{mypy} run, and no coverage report. For a course project of this scope it is acceptable; for a team that plans to keep iterating it is the first thing we would add.
+
+\end{itemize}
+
+\subsection{Future Improvements}
+
+Our plans for extending the system are architectural, not just feature-additions.
+
+\textbf{Swap flat JSON for SQLite behind the existing \texttt{Persistence} interface.}
+Because all storage access is already funnelled through one class with a stable signature, moving to SQLite is a localised change: the service layer stays untouched. This would remove the file-locking and concurrent-write risks and let us query with real SQL where appropriate (e.g., complex report joins), while keeping the self-implemented data structures alive for their original roles as in-memory caches and undo history.
+
+\textbf{Split \texttt{Inventory} cleanly from \texttt{PlayerInventoryService}.}
+The current arrangement works but leaks responsibilities: \texttt{Inventory} owns the \texttt{DoublyLinkedList}, but some slot-shape decisions (stacking rules, instance-state preservation) live in \texttt{PlayerInventoryService}. A cleaner split would make \texttt{Inventory} a pure structural adapter and promote all business rules into the service. This is the kind of refactor that the test suite would make safe.
+
+\textbf{Front-end and HTTP layer.}
+A thin Flask / FastAPI layer exposing the service interface would enable a browser UI without rewriting any business logic — the service layer was designed without CLI-specific assumptions precisely so this migration is possible. This also opens up real multi-player scenarios that a single-user CLI fundamentally cannot support.
+
+\textbf{Continuous integration with coverage reporting.}
+GitHub Actions running \texttt{pytest}, \texttt{mypy}, and a coverage gate on every pull request. This would catch documentation-drift and regression risks earlier and make the 483-test suite useful as a merge gate rather than a manual checklist.
+
+\textbf{Self-balancing BST.}
+The current \texttt{PriceBST} is unbalanced; worst-case degeneration to O(n) is a latent risk if listings arrive in sorted order. Upgrading to a self-balancing variant (AVL or red-black) would guarantee O(log n) without changing the service-layer API.
+
+
+\subsection{Learning Outcomes}
+
+The clearest lesson for us was that \textbf{OOP is a design tool, not a style guide}. It is easy to produce code that looks object-oriented — classes everywhere, inheritance trees — and gets none of the real benefits. The parts of our system where OOP actually paid off (polymorphic deserialisation, the layered architecture enabling parallel development, the exception hierarchy letting one \texttt{except} clause cover many error types) all came from asking "what problem is this solving?" rather than "can I use a class here?". Conversely, we were repeatedly tempted to build premature abstractions (a \texttt{BaseService}, a generic \texttt{Repository<T>}) and repeatedly glad we resisted; by the time a need was real, we understood it well enough to build the right thing instead of the imagined thing.
+
+We also learned, concretely, that \textbf{data structure choice is a design decision with observable consequences}. Writing our own \texttt{HashMap} and \texttt{PriceBST} forced us to think about what each structure actually provides — not just its Big-O numbers but the invariants it maintains. When we picked the wrong one (an early version used a list scan for price range queries), the test suite got visibly slower. Replacing it with the BST was an immediate, measurable improvement. We now read textbook complexity tables with a different eye: not as trivia, but as a prediction about the system we are about to build.
+
+On the process side, the project taught us how much leverage a \textbf{design contract} provides in a team. Writing \texttt{data-design.md} / \texttt{services-interface.md} / \texttt{error-and-log-design.md} before the code felt slow at the time and was indispensable in hindsight: six people could implement in parallel because every boundary was already negotiated. When contracts drifted from code, we felt it. The lesson is not "always write docs first" — it is "when collaboration is the bottleneck, contracts are the cheapest synchronisation primitive you have".
+
+Finally, we learned that \textbf{tests are a design tool, not just a correctness tool}. The tests that gave us the most value were not the ones verifying a single method in isolation but the ones that refused to fit until we restructured production code — the \texttt{KeyboardInterrupt} path that forced dependency injection, the transfer-state round-trip that forced a slot-level API. The test we could not write was the bug we could not fix.
+\end{document}

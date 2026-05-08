@@ -374,4 +374,19 @@ data/
 
 ## 许可
 
-本项目仅用于 JC1503 课程作业，不对外发布。
+本项目基于 MIT 协议。
+
+
+---
+
+<details>
+
+<summary>点击展开</summary>
+
+<img width="616" height="616" alt="image" src="https://github.com/user-attachments/assets/36cefb5e-5d3a-49d5-a45f-c03cfb202299" />
+
+<img width="643" height="364" alt="image" src="https://github.com/user-attachments/assets/66ac98bc-397f-4c19-9ba5-800a185bdde5" />
+
+<img width="754" height="1280" alt="Backend development" src="https://github.com/user-attachments/assets/da756155-c157-4ffc-8b90-0eafbd3d5bd7" />
+
+</details>
