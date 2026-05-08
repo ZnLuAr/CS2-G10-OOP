@@ -13,6 +13,8 @@
 
 本项目是 JC1503 课程的期中小组作业，要求以 Python 面向对象的方式设计并实现一个**完整的个人软件系统**。系统需选定一个现实应用场景（如记录管理、预订系统、追踪系统等），围绕该场景提供一组有意义的 CRUD 操作，并具备数据持久化能力。
 
+本次我们选用的是一套游戏内物品交易系统。
+
 ### 核心要求速览
 
 | 类别 | 要点 |
@@ -22,6 +24,29 @@
 | **算法** | 递归树遍历、搜索行为分析、复杂度考量 |
 | **持久化** | 首次运行自动生成初始数据集并存储；后续运行加载并更新 |
 | **测试** | 单元测试、模块测试、系统测试 |
+
+### 项目状态
+
+**✅ 开发完成（2026-05-08）**
+
+- **功能完成度**：61/61 功能全部实现（详见 [`docs/功能列表.csv`](./docs/功能列表.csv)）
+- **测试覆盖**：483 个测试用例全部通过
+  - 数据结构测试：76 个（HashMap, Stack, Queue, DoublyLinkedList, CatalogTree, PriceBST）
+  - 模型测试：48 个（Item 多态、Player、Listing、Transaction）
+  - 服务层测试：229 个（Player, Item, Inventory, Market, Transaction, Persistence, Seed）
+  - UI 层测试：130 个（CLI 交互、菜单导航、异常处理、数据管理）
+- **代码质量**：
+  - 统一异常处理机制
+  - 完整的持久化与数据管理功能
+  - 详细的开发文档与设计决策记录
+
+**应用场景**：游戏装备交易系统
+- 玩家管理（创建、查询、重命名、删除、充值）
+- 物品管理（列表、详情、分类浏览、创建、删除）
+- 背包管理（查看、排序、添加、移除、容量限制）
+- 市场交易（挂单、撤销、浏览、筛选、购买、批量结算）
+- 报表分析（交易历史、价格统计、排行榜、系统快照）
+- 数据管理（立即保存、自动保存、数据备份、数据重置）
 
 ## 小组成员（排名不分先后）
 
@@ -37,21 +62,56 @@
 ## 项目结构
 
 ```
-
-· 以下为预期目录结构，随开发推进逐步建立。
-
 .
-├── src/                # 源代码
-│   ├── models/         # 领域模型 / 实体类
-│   ├── structures/     # 自实现的数据结构
-│   ├── services/       # 业务逻辑
-│   ├── errors/         # 自定义异常
-│   └── ui/             # 用户界面 / CLI 交互
-├── tests/              # 测试代码
-├── data/               # 运行时数据文件（由程序自动生成，不提交）
-├── docs/               # 文档 / 报告素材
-├── main.py             # 程序入口
-├── requirements.txt    # 依赖列表（如有）
+├── src/                        # 源代码
+│   ├── app.py                  # 应用入口（启动、横幅、bootstrap、shutdown）
+│   ├── models/                 # 领域模型
+│   │   ├── item.py             # Item 抽象基类 + 5 个子类（Weapon/Tool/Equipment/Consumable/Misc）
+│   │   ├── player.py           # Player
+│   │   ├── listing.py          # Listing（挂单）
+│   │   └── transaction.py      # Transaction（成交记录）
+│   ├── structures/             # 自实现的数据结构
+│   │   ├── hash_map.py         # 链地址法哈希表 → Repository ID 索引
+│   │   ├── stack.py            # 链表栈 → CLI 撤销栈
+│   │   ├── queue.py            # 链表队列 → 批量结算 FIFO
+│   │   ├── doubly_linked_list.py  # 双向链表 → 玩家背包
+│   │   ├── catalog_tree.py     # 分类树 → 物品分类
+│   │   └── price_bst.py        # 二叉搜索树 → 价格区间查询
+│   ├── services/               # 业务逻辑
+│   │   ├── persistence.py      # JSON 持久化（load/save/seed/reset + Repository 数据容器）
+│   │   ├── seed.py             # 初始种子数据生成
+│   │   ├── logger.py           # 日志
+│   │   ├── player_service.py   # 玩家服务
+│   │   ├── item_service.py     # 物品服务
+│   │   ├── inventory.py        # 背包服务（基础）
+│   │   ├── player_inventory_service.py  # 背包服务（整合层）
+│   │   ├── market.py           # 市场服务
+│   │   └── transaction.py      # 交易服务
+│   ├── errors/                 # 自定义异常树（16 个异常类）
+│   └── ui/                     # CLI 用户界面
+│       ├── cli.py              # 主路由器（TradingCLI）
+│       ├── handlers/           # 功能域 Handler（Player/Item/Inventory/Market/Report/Data）
+│       ├── menus.py            # 菜单显示
+│       ├── prompts.py          # 输入校验工具
+│       ├── formatters.py       # 格式化工具
+│       ├── operations.py       # 撤销操作定义
+│       └── utils.py            # UI 通用工具（pause/clear_screen/print_paginated）
+├── tests/                      # 测试代码（483 个测试）
+│   ├── structures/             # 数据结构测试
+│   ├── models/                 # 模型测试
+│   ├── services/               # 服务测试
+│   ├── ui/                     # UI 测试
+│   └── test_app.py             # 应用生命周期测试
+├── data/                       # 运行时数据文件（首次运行自动生成）
+├── docs/                       # 项目文档
+│   ├── project-introduction.md # 作业原始要求
+│   ├── data-design.md          # 数据设计
+│   ├── services-interface.md   # 服务接口规范
+│   ├── error-and-log-design.md # 异常与日志规范
+│   ├── 功能列表.csv            # 61 项功能清单（全部完成）
+│   └── dev-materials-for-report/  # 报告素材（开发日志、设计决策、测试笔记）
+├── main.py                     # 程序入口
+├── requirements.txt            # 依赖列表（空，仅使用标准库）
 └── README.md
 ```
 
