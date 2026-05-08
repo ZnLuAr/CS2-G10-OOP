@@ -23,7 +23,7 @@ GETS,物品管理,按分类浏览,从分类树根节点递归向下浏览，进�
 GETS,物品管理,新增物品（管理员）,管理员模式：填写物品类型 / 名称 / 稀有度 / 基础价值 / 子类属性，写入 items.json,已完成,P1-重要,#CRUD,ItemService.create_item 校验叶子分类与 stats 后实例化对应 Item 子类,22,JIAFENG YE,已完成,CLI 创建物品入口已接入；成功后 save_items 持久化
 GETS,物品管理,删除物品（管理员）,删除前校验：无玩家持有、无活跃挂单；否则拒绝,已完成,P2-一般,#Delete,ItemService.delete_item 扫描玩家背包和 active listing 引用,23,JIAFENG YE,已完成,CLI 删除入口已接入；删除前 describe 展示并二次确认
 GETS,背包,查看背包,展示当前选定玩家的背包，按物品在背包中的顺序显示（双向链表的天然次序）,已完成,P0-关键,#Structure-DoublyLinkedList,Inventory 服务已实现双向链表存储；CLI 查看入口已接入,24,XINGZHOU PENG,已完成,src/services/inventory.py + CLI 查看背包
-GETS,背包,按稀有度排序背包,对背包进行排序展示，但不改变内部存储顺序,已规划,P1-重要,#Sort,排序算法可写入复杂度分析,25,XINGZHOU PENG,未完成,
+GETS,背包,按稀有度排序背包,对背包进行排序展示，但不改变内部存储顺序,已完成,P1-重要,#Sort,排序算法可写入复杂度分析,25,XINGZHOU PENG,已完成,CLI 背包排序入口已接入；支持按稀有度/名称/ID 排序
 GETS,背包,从背包移除物品,从背包移除指定物品（用于成交 / 丢弃 / 上架）,已完成,P0-关键,#Structure-DoublyLinkedList,Inventory.remove() 实现；支持原子性检查；CLI 移除入口已接入,26,XINGZHOU PENG,已完成,src/services/inventory.py::remove + CLI 移除物品
 GETS,背包,向背包添加物品,向背包末尾添加物品（用于初始化 / 购买入库）,已完成,P0-关键,#Structure-DoublyLinkedList,Inventory.add() 实现双向链表尾部添加；支持堆叠合并；CLI 添加入口已接入,27,XINGZHOU PENG,已完成,src/services/inventory.py::add + CLI 添加物品（调试）
 GETS,背包,背包容量限制,每个玩家背包上限 N（如 50 件），超限拒绝添加并提示,已完成,P1-重要,#Validation,Inventory.CAPACITY=50；满时抛 InventoryFullError；CLI 容量查看入口已接入,28,XINGZHOU PENG,已完成,src/services/inventory.py CAPACITY + CLI 容量信息
@@ -47,16 +47,16 @@ GETS,历史与报表,价格统计,对指定物品 / 类型计算最低 / 最高 
 GETS,历史与报表,排行榜：富豪榜,按当前金币降序展示前 N 名玩家,已完成,P2-一般,#Analytics,,46,LVZHEN ZHOU,已完成,TransactionService.top_by_gold + CLI 展示
 GETS,历史与报表,排行榜：交易额榜,按累计成交金额降序展示玩家,已完成,P2-一般,#Analytics,,47,LVZHEN ZHOU,已完成,TransactionService.top_by_volume + CLI 展示
 GETS,历史与报表,系统数据快照,展示总玩家数 / 总物品数 / 活跃挂单数 / 累计交易额,已完成,P2-一般,#Analytics,,48,LVZHEN ZHOU,已完成,TransactionService.snapshot + CLI 展示
-GETS,持久化,手动保存,菜单内提供"立即保存"选项，触发将内存数据写入 data/*.json,已规划,P0-关键,#Persistence,,49,LVZHEN ZHOU,未完成,
-GETS,持久化,自动保存,每次成功的写操作（创建 / 更新 / 删除 / 交易）后自动落盘,已规划,P0-关键,#Persistence,可对比手动 / 自动两种策略写入决策文档,50,LVZHEN ZHOU,未完成,
-GETS,持久化,数据备份,保存前将旧文件备份为 data/backup/*.json.bak，覆写失败时可恢复,已规划,P1-重要,#Persistence,,51,LVZHEN ZHOU,未完成,
+GETS,持久化,手动保存,菜单内提供"立即保存"选项，触发将内存数据写入 data/*.json,已完成,P0-关键,#Persistence,,49,LVZHEN ZHOU,已完成,DataHandler.save_all + CLI 数据管理菜单"立即保存"入口
+GETS,持久化,自动保存,每次成功的写操作（创建 / 更新 / 删除 / 交易）后自动落盘,已完成,P0-关键,#Persistence,可对比手动 / 自动两种策略写入决策文档,50,LVZHEN ZHOU,已完成,所有 Handler 操作成功后调用 persistence.save_*；App.shutdown 注册 atexit 保证退出保存
+GETS,持久化,数据备份,保存前将旧文件备份为 data/backup/*.json.bak，覆写失败时可恢复,已完成,P1-重要,#Persistence,,51,LVZHEN ZHOU,已完成,Persistence.backup_before_save 在每次 save 前自动备份；tests/services/test_persistence.py 覆盖
 GETS,持久化,JSON 序列化,所有模型实现 to_dict() / from_dict()；多态对象按 category 反序列化为正确子类,已完成,P0-关键,#Serialization,ItemFactory 按 category 路由；Persistence.save_items 写回 to_dict,52,LVZHEN ZHOU,已完成,Item/Player/Listing/Transaction 序列化已接入；CatalogTree roundtrip 已测试
-GETS,持久化,数据重置,菜单提供"重置所有数据"（二次确认），删除 data/*.json 后重启重新初始化,已规划,P2-一般,#Persistence,,53,LVZHEN ZHOU,未完成,
+GETS,持久化,数据重置,菜单提供"重置所有数据"（二次确认），删除 data/*.json 后重启重新初始化,已完成,P2-一般,#Persistence,,53,LVZHEN ZHOU,已完成,DataHandler.reset_all 二次确认后调用 persistence.reset + 设置 _skip_save_on_exit 标志位 + SystemExit
 GETS,异常与日志,自定义异常体系,定义 TradingSystemError 基类及子类（金币不足 / 物品不存在 / 挂单失效 / 输入非法 / 数据不一致）,已完成,P0-关键,#Exception,errors/__init__.py,54,YUXI ZHU,已完成,src/errors/ 下完整实现；tests/test_errors.py 44 例全绿
-GETS,异常与日志,全局异常捕获,主菜单循环外层包 try/except，任何未预期异常打印堆栈但程序继续运行,已规划,P0-关键,#Exception,,55,YUXI ZHU,未完成,
+GETS,异常与日志,全局异常捕获,主菜单循环外层包 try/except，任何未预期异常打印堆栈但程序继续运行,已完成,P0-关键,#Exception,,55,YUXI ZHU,已完成,App.run() 捕获所有异常并打印堆栈；BaseHandler._handle_exception 统一异常显示
 GETS,异常与日志,操作日志,关键操作（创建 / 删除 / 交易）追加到 data/operation.log，便于调试,已完成,P2-一般,#Logging,,56,YUXI ZHU,已完成,src/services/logger.py 写入 data/operation.log；Persistence 软警告改走 log.warn
-GETS,测试,数据结构单元测试,DoublyLinkedList / Stack / Queue / Tree / BST / HashMap 各自一套单测，覆盖增删查与边界,已规划,P0-关键,#Test,tests/structures/,57,LVZHEN ZHOU,未完成,
-GETS,测试,模型单元测试,Item 各子类的多态行为 / Player 业务规则 / Inventory 容量边界 / Listing 状态机,已规划,P0-关键,#Test,tests/models/；各模块负责人各自补充,58,全员,未完成,
-GETS,测试,服务集成测试,Market.buy 完整事务、Persistence 保存→重启→加载等价、首次运行 seed 行为,已规划,P0-关键,#Test,tests/services/,59,MINGJIN LI,未完成,
-GETS,测试,异常路径测试,金币不足 / 自购 / 挂单失效 / 非法输入等异常分支均有用例,已规划,P0-关键,#Test,,60,YUXI ZHU,未完成,
-GETS,测试,系统端到端测试,模拟真实使用：启动 → 创建 → 挂单 → 购买 → 退出 → 重启 → 数据正确,已规划,P1-重要,#Test,可写脚本驱动 stdin,61,LVZHEN ZHOU,未完成,
+GETS,测试,数据结构单元测试,DoublyLinkedList / Stack / Queue / Tree / BST / HashMap 各自一套单测，覆盖增删查与边界,已完成,P0-关键,#Test,tests/structures/,57,LVZHEN ZHOU,已完成,76 tests covering all structures (HashMap/Stack/Queue/DoublyLinkedList/CatalogTree/PriceBST)
+GETS,测试,模型单元测试,Item 各子类的多态行为 / Player 业务规则 / Inventory 容量边界 / Listing 状态机,已完成,P0-关键,#Test,tests/models/；各模块负责人各自补充,58,全员,已完成,48 tests covering Item polymorphism/Player/Listing lifecycle/Transaction
+GETS,测试,服务集成测试,Market.buy 完整事务、Persistence 保存→重启→加载等价、首次运行 seed 行为,已完成,P0-关键,#Test,tests/services/,59,MINGJIN LI,已完成,229 tests covering all services (Player/Item/Inventory/Market/Transaction/Persistence/Seed)
+GETS,测试,异常路径测试,金币不足 / 自购 / 挂单失效 / 非法输入等异常分支均有用例,已完成,P0-关键,#Test,,60,YUXI ZHU,已完成,90+ exception tests with pytest.raises across services; UI exception display tests
+GETS,测试,系统端到端测试,模拟真实使用：启动 → 创建 → 挂单 → 购买 → 退出 → 重启 → 数据正确,已完成,P1-重要,#Test,可写脚本驱动 stdin,61,LVZHEN ZHOU,已完成,130+ UI tests with mock_input simulating full workflows; test_app.py covers bootstrap/shutdown/atexit

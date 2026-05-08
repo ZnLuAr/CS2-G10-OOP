@@ -126,7 +126,20 @@ class Persistence:
 
     # ===== 备份 =====
     def backup_before_save(self, path: str) -> None:
-        """保存前将旧文件备份为 data/backup/*.json.bak（功能 ID 51）。"""
+        """
+        保存前将旧文件备份为 data/backup/*.json.bak（功能 ID 51）。"""
+
+    # ===== 重置 =====
+    def reset(self) -> None:
+        """
+        删除所有数据文件，触发下次启动重新初始化（功能 ID 53）。
+        # persists
+        
+        删除 data/ 下所有业务文件，保留 backup/ 目录。
+        
+        Raises:
+            PersistenceError: 文件删除失败
+        """
 ```
 
 ### 4.2 数据载体 `Repository`

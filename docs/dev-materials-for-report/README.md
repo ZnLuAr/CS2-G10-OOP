@@ -11,6 +11,8 @@
 | [`design-decisions.md`](./design-decisions.md) | 设计决策记录："为什么这么做" | 技术设计 / 系统设计 |
 | [`development-log.md`](./development-log.md) | 时间线式开发日志：什么时候改了什么 | 开发与测试 |
 | [`testing-notes.md`](./testing-notes.md) | 测试与调试笔记：发现的 bug 与修复过程 | 开发与测试 |
+| [`compliance-report.md`](./compliance-report.md) | 实现与文档一致性验证报告（Code Review 后生成） | 技术设计 / 反思 |
+| [`test-coverage-report.md`](./test-coverage-report.md) | 测试覆盖完整报告（含异常处理与边界条件） | 开发与测试 |
 
 > 项目级的设计文档（`data-design.md` / `error-and-log-design.md` / `功能列表.csv` 等）在 [`docs/` 根目录](../)，不在本目录下。
 
