@@ -81,6 +81,42 @@ class TestShutdown:
         # 未 bootstrap 直接退出不应抛
         app.shutdown()
 
+    def test_shutdown_skips_save_when_flag_set(self, app, tmp_path):
+        """_skip_save_on_exit 为 True 时 shutdown 不应再保存数据。
+
+        回归保护：避免重新引入"reset 后 atexit 把已删数据写回"的 bug。
+        """
+        import os
+        app.bootstrap()
+        data_dir = str(tmp_path / "data")
+
+        # 模拟 DataHandler.reset_all 的语义：先 reset，再设置标志位
+        app.persistence.reset()
+        app._skip_save_on_exit = True
+
+        # 此时 shutdown 不应把文件写回
+        app.shutdown()
+
+        for fname in ["players.json", "items.json", "market.json",
+                      "transactions.json", "catalog.json"]:
+            assert not os.path.exists(os.path.join(data_dir, fname)), \
+                f"{fname} 在标志位置 True 时仍被 shutdown 写回"
+
+    def test_shutdown_default_still_saves(self, app, tmp_path):
+        """正常退出（标志位为 False）时 shutdown 仍应保存数据，向后兼容。"""
+        import os
+        app.bootstrap()
+        data_dir = str(tmp_path / "data")
+        target = os.path.join(data_dir, "players.json")
+        os.remove(target)
+
+        # 默认情况下 _skip_save_on_exit 应为 False
+        assert app._skip_save_on_exit is False
+        app.shutdown()
+
+        # 文件应被重新写出
+        assert os.path.exists(target)
+
 
 # ---------------------------------------------------------------------------
 # run() 主流程：UI runner 注入

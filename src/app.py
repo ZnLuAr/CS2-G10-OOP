@@ -61,6 +61,8 @@ class App:
         self.transaction_service: TransactionService | None = None
         self.market_service: MarketService | None = None
         self._save_registered = False
+        # 当为 True 时，shutdown 跳过 save_all（用于数据重置后避免 atexit 把已删文件写回）
+        self._skip_save_on_exit = False
 
 
     # ------------------------------------------------------------------
@@ -96,8 +98,14 @@ class App:
               f"  历史交易: {len(self.repo.transactions)}")
 
     def shutdown(self) -> None:
-        """高雅不堪地关机，保存全部数据（功能 ID 4）"""
+        """高雅不堪地关机，保存全部数据（功能 ID 4）
+
+        当 ``_skip_save_on_exit`` 为 True 时跳过保存——
+        用于数据重置场景，避免 atexit 把刚删除的 JSON 文件再写回。
+        """
         if self.repo is None:
+            return
+        if self._skip_save_on_exit:
             return
         try:
             self.persistence.save_all(self.repo)

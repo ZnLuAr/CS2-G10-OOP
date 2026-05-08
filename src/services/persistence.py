@@ -245,8 +245,11 @@ class Persistence:
             if os.path.exists(p):
                 try:
                     os.remove(p)
+                    log.info("persistence", "file_deleted", filename=fname)
                 except OSError as e:
                     raise PersistenceError(path=p, op="delete") from e
+
+        log.info("persistence", "data_reset")
 
 
     # =====================================================================
